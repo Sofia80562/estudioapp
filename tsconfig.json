@@ -20,9 +20,8 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"],
-      "@generated": ["./src/generated/index"]
-    }
+  "@/*": ["./*"] 
+}
   },
   "include": [
     "next-env.d.ts",
