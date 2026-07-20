@@ -1,36 +1,44 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 📚 EstudioApp
 
-## Getting Started
+> Plataforma integral de gestión académica y administrativa optimizada para estudiantes universitarios, desarrollada con Next.js, TypeScript y Prisma.
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## 🚀 Características Principales
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+* **Optimización de Rendimiento:** Implementación de estrategias de caché y prevención de consultas **N+1** en los modelos de base de datos para garantizar respuestas veloces.
+* **Autenticación Segura:** Sistema robusto de validación de usuarios y control de sesiones mediante **OAuth** y middlewares dedicados, evitando consultas redundantes en cada ruta.
+* **Gestión de Datos Eficiente:** Aplicación de cargas controladas y mapeo estructurado para el manejo de relaciones en la base de datos.
+* **Pruebas de API:** Endpoints listos y validados para comprobar el rendimiento y los estados HTTP de forma limpia.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🛠️ Tecnologías Utilizadas
 
-## Learn More
+* **Frontend & Backend:** **Next.js** (con soporte de Turbopack)
+* **Lenguaje:** **TypeScript**
+* **ORM & Base de Datos:** **Prisma**
+* **Herramientas de Pruebas:** **Thunder Client**
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## ⚙️ Instalación y Ejecución Local
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Sigue estos pasos para levantar el proyecto en tu entorno local:
 
-## Deploy on Vercel
+1. **Clona el repositorio:**
+   ```bash
+   git clone [https://github.com/tu-usuario/estudioapp.git](https://github.com/tu-usuario/estudioapp.git)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+2. **Instala las dependencias:**
+      npm install
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+3. **Configura tus variables de entorno:**
+     Crea un archivo .env en la raíz del proyecto y añade las credenciales de tu base de datos y de autenticación.
+
+4. **Ejecuta el servidor de desarrollo:**
+     npm run dev
+
+5. **Abre tu navegador y accede a http://localhost:3000.**
+
+Autora: María Paz Beltrán Murcia
