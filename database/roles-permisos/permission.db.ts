@@ -8,7 +8,7 @@ export const permissionDb = {
             prisma.permission.findMany({
                 skip,
                 take: pageSize,
-                orderBy: { createdAt: 'desc' },
+                orderBy: { code: 'desc' },
             }),
             prisma.permission.count(),
         ]);

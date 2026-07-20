@@ -14,13 +14,14 @@ datasource db {
 // MÓDULO ORGANIZACIONAL
 // ==========================================
 model Organization {
-  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name              String   @db.VarChar(150)
-  legalName         String?  @map("legal_name") @db.VarChar(200)
-  taxIdentification String?  @map("tax_identification") @db.VarChar(30)
-  status            String   @db.VarChar(30)
-  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name              String    @db.VarChar(150)
+  legalName         String?   @map("legal_name") @db.VarChar(200)
+  taxIdentification String?   @map("tax_identification") @db.VarChar(30)
+  status            String    @db.VarChar(30)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt         DateTime? @map("deleted_at") @db.Timestamptz
 
   venues    Venue[]
   roles     Role[]
@@ -30,12 +31,13 @@ model Organization {
 }
 
 model Venue {
-  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organizationId String   @map("organization_id") @db.Uuid
-  name           String   @db.VarChar(150)
-  status         String   @db.VarChar(30)
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  name           String    @db.VarChar(150)
+  status         String    @db.VarChar(30)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   userRoles    UserRole[]
@@ -151,10 +153,10 @@ model UserRole {
   organizationId String? @map("organization_id") @db.Uuid
   venueId        String? @map("venue_id") @db.Uuid
 
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role         Role          @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role         Role         @relation(fields: [roleId], references: [id], onDelete: Cascade)
   organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  venue        Venue?        @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  venue        Venue?       @relation(fields: [venueId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([organizationId, venueId])
@@ -187,4 +189,4 @@ model MenuPermission {
 
   @@id([menuId, permissionId])
   @@map("menu_permissions")
-} 
+}
