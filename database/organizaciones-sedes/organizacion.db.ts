@@ -2,149 +2,190 @@ import type { Prisma } from '@prisma/client';
 import { Prisma as PrismaClient } from '@prisma/client';
 
 import { prisma } from '@/database/client';
-import { ConflictError } from '@/errors/conflict-error';
 import { NotFoundError } from '@/errors/not-found-error';
 import { normalizePagination } from '@/helper/pagination';
-import type {
-    CreateOrganizationBody,
-    OrganizationQueryParams,
-    UpdateOrganizationBody,
-} from '@/validations/organizaciones-sedes';
+import type { OrganizationQueryParams } from '@/validations/organizaciones-sedes';
 
-const isPrismaUniqueConstraintError = (
-    error: unknown,
+export const isOrganizationUniqueConstraintError = (
+	error: unknown,
 ): error is PrismaClient.PrismaClientKnownRequestError =>
-    error instanceof PrismaClient.PrismaClientKnownRequestError && error.code === 'P2002';
+	error instanceof PrismaClient.PrismaClientKnownRequestError && error.code === 'P2002';
 
 const selectOrganizationFields = {
-    id: true,
-    name: true,
-    legalName: true,
-    taxIdentification: true,
-    status: true,
-    createdAt: true,
-    updatedAt: true,
+	id: true,
+	name: true,
+	legalName: true,
+	taxIdentification: true,
+	email: true,
+	phone: true,
+	domain: true,
+	status: true,
+	createdAt: true,
+	updatedAt: true,
+} satisfies Prisma.OrganizationSelect;
+
+const selectOrganizationListFields = {
+	...selectOrganizationFields,
+	_count: { select: { venues: { where: { deletedAt: null } } } },
+} satisfies Prisma.OrganizationSelect;
+
+type OrganizationListRow = Prisma.OrganizationGetPayload<{
+	select: typeof selectOrganizationListFields;
+}>;
+
+const mapListRow = (row: OrganizationListRow) => {
+	const { _count, ...organization } = row;
+	return { ...organization, venuesCount: _count.venues };
 };
 
-export const getAll = async (filters: OrganizationQueryParams) => {
-    const { skip, take, meta } = normalizePagination(filters);
+type TransactionClient = Prisma.TransactionClient;
 
-    const where: Prisma.OrganizationWhereInput = {
-        deletedAt: null,
-    };
+const createTransactionRepository = (transaction: TransactionClient) => ({
+	findOrganization: (organizationId: string) =>
+		transaction.organization.findFirst({
+			where: { id: organizationId, deletedAt: null },
+			select: selectOrganizationFields,
+		}),
 
-    if (filters.search) {
-        where.OR = [
-            { name: { contains: filters.search, mode: 'insensitive' } },
-        ];
-    }
+	createOrganization: (data: {
+		name: string;
+		normalizedName: string;
+		legalName: string | null;
+		taxIdentification: string | null;
+		email: string | null;
+		phone: string | null;
+		domain: string | null;
+	}) =>
+		transaction.organization.create({
+			data: { ...data, status: 'ACTIVE' },
+			select: selectOrganizationFields,
+		}),
 
-    const [organizations, total] = await Promise.all([
-        prisma.organization.findMany({
-            where,
-            select: selectOrganizationFields,
-            skip,
-            take,
-            orderBy: filters.orderBy
-                ? { [filters.orderBy]: filters.order ?? 'asc' }
-                : { createdAt: 'desc' },
-        }),
-        prisma.organization.count({ where }),
-    ]);
+	updateOrganization: (
+		organizationId: string,
+		expectedUpdatedAt: Date,
+		data: Prisma.OrganizationUpdateManyMutationInput,
+	) =>
+		transaction.organization.updateMany({
+			where: { id: organizationId, updatedAt: expectedUpdatedAt, deletedAt: null },
+			data,
+		}),
 
-    return { organizations, meta: meta(total) };
-};
+	removeWithCascade: async (organizationId: string) => {
+		await transaction.venue.updateMany({
+			where: { organizationId, deletedAt: null },
+			data: { deletedAt: new Date() },
+		});
 
-export const create = async (data: CreateOrganizationBody) => {
-    try {
-        const organization = await prisma.organization.create({
-            data: {
-                name: data.name,
-                legalName: data.legalName,
-                taxIdentification: data.taxIdentification,
-                status: 'ACTIVE',
-            },
-            select: selectOrganizationFields,
-        });
+		return transaction.organization.update({
+			where: { id: organizationId },
+			data: { deletedAt: new Date() },
+			select: selectOrganizationFields,
+		});
+	},
 
-        return organization;
-    } catch (error) {
-        if (isPrismaUniqueConstraintError(error)) {
-            throw new ConflictError('Ya existe una organización con ese nombre.');
-        }
+	writeAudit: (data: {
+		actorUserId: string;
+		organizationId: string;
+		entityId: string;
+		action: 'ORGANIZATION_CREATED' | 'ORGANIZATION_UPDATED';
+		changes: Prisma.InputJsonValue;
+	}) =>
+		transaction.auditLog.create({
+			data: { ...data, entityType: 'Organization' },
+		}),
 
-        throw error;
-    }
-};
-
-export const record = (organizationId: string) => ({
-    getUnique: async () => {
-        const record = await prisma.organization.findUnique({
-            where: { id: organizationId },
-            select: { ...selectOrganizationFields, deletedAt: true },
-        });
-
-        if (!record || record.deletedAt) {
-            throw new NotFoundError('La organización solicitada no existe.');
-        }
-
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { deletedAt, ...organization } = record;
-        return organization;
-    },
-
-    update: async (data: UpdateOrganizationBody) => {
-        const organization = await prisma.organization.findUnique({
-            where: { id: organizationId },
-            select: { deletedAt: true },
-        });
-
-        if (!organization || organization.deletedAt) {
-            throw new NotFoundError('La organización solicitada no existe.');
-        }
-
-        try {
-            return await prisma.organization.update({
-                where: { id: organizationId },
-                data: {
-                    ...(data.name && { name: data.name }),
-                    ...(data.legalName && { legalName: data.legalName }),
-                    ...(data.taxIdentification && { taxIdentification: data.taxIdentification }),
-                },
-                select: selectOrganizationFields,
-            });
-        } catch (error) {
-            if (isPrismaUniqueConstraintError(error)) {
-                throw new ConflictError('Ya existe una organización con ese nombre.');
-            }
-
-            throw error;
-        }
-    },
-
-    remove: async () => {
-        const organization = await prisma.organization.findUnique({
-            where: { id: organizationId },
-            select: { deletedAt: true },
-        });
-
-        if (!organization || organization.deletedAt) {
-            throw new NotFoundError('La organización solicitada no existe.');
-        }
-
-        return await prisma.$transaction(async transaction => {
-            await transaction.venue.updateMany({
-                where: { organizationId },
-                data: { deletedAt: new Date() },
-            });
-
-            return transaction.organization.update({
-                where: { id: organizationId },
-                data: { deletedAt: new Date() },
-                select: selectOrganizationFields,
-            });
-        });
-    },
+	getDetail: (organizationId: string) =>
+		transaction.organization.findFirstOrThrow({
+			where: { id: organizationId, deletedAt: null },
+			select: selectOrganizationFields,
+		}),
 });
 
-export const ESCAPE = ['name'];
+export type OrganizationTransactionRepository = ReturnType<typeof createTransactionRepository>;
+
+export const getAll = async (
+	filters: OrganizationQueryParams,
+	actor: { userId: string; isAdministrator: boolean },
+) => {
+	const { skip, take, meta } = normalizePagination(filters);
+
+	const where: Prisma.OrganizationWhereInput = {
+		deletedAt: null,
+		...(!actor.isAdministrator
+			? {
+					OR: [
+						{
+							userRoles: {
+								some: { userId: actor.userId, role: { deletedAt: null } },
+							},
+						},
+						{
+							roles: {
+								some: {
+									deletedAt: null,
+									userRoles: { some: { userId: actor.userId } },
+								},
+							},
+						},
+					],
+				}
+			: {}),
+	};
+
+	if (filters.search) {
+		where.AND = {
+			OR: [
+				{ name: { contains: filters.search, mode: 'insensitive' } },
+				{ email: { contains: filters.search, mode: 'insensitive' } },
+			],
+		};
+	}
+
+	const [organizations, total] = await Promise.all([
+		prisma.organization.findMany({
+			where,
+			select: selectOrganizationListFields,
+			skip,
+			take,
+			orderBy: filters.orderBy
+				? { [filters.orderBy]: filters.order ?? 'asc' }
+				: { createdAt: 'desc' },
+		}),
+		prisma.organization.count({ where }),
+	]);
+
+	return { organizations: organizations.map(mapListRow), meta: meta(total) };
+};
+
+export const actorHasOrganizationScope = async (
+	userId: string,
+	organizationId: string,
+): Promise<boolean> => {
+	const assignments = await prisma.userRole.count({
+		where: {
+			userId,
+			role: { deletedAt: null },
+			OR: [{ organizationId }, { role: { organizationId } }],
+		},
+	});
+
+	return assignments > 0;
+};
+
+export const getUnique = async (organizationId: string) => {
+	const record = await prisma.organization.findFirst({
+		where: { id: organizationId, deletedAt: null },
+		select: selectOrganizationFields,
+	});
+
+	if (!record) {
+		throw new NotFoundError('La organización solicitada no existe.');
+	}
+
+	return record;
+};
+
+export const withTransaction = <T>(
+	operation: (repository: OrganizationTransactionRepository) => Promise<T>,
+) => prisma.$transaction(transaction => operation(createTransactionRepository(transaction)));
