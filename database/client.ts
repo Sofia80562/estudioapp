@@ -1,5 +1,5 @@
-// Se cambia la importación para usar el cliente estándar de Prisma
-import { PrismaClient } from '@prisma/client';
+// Importa desde la ruta de salida que configuraste en tu schema.prisma
+import { PrismaClient } from '../generated/prisma'; 
 import { env } from '@/lib/config/env';
 
 const globalForPrisma = globalThis as typeof globalThis & {

@@ -1,0 +1,155 @@
+{
+  "realm": "estudioapp",
+  "enabled": true,
+  "displayName": "EstudioApp",
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": false,
+  "editUsernameAllowed": false,
+  "passwordPolicy": "length(8) and notUsername",
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "clients": [
+    {
+      "clientId": "estudioapp-api",
+      "name": "EstudioApp API",
+      "description": "Cliente OIDC confidencial del backend EstudioApp (Authorization Code + PKCE)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "bearerOnly": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "estudioapp-dev-secret",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "http://localhost:3000/api/auth/callback"
+      ],
+      "webOrigins": [
+        "http://localhost:3000"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:3000/*"
+      },
+      "defaultClientScopes": [
+        "openid",
+        "email",
+        "profile",
+        "roles",
+        "web-origins",
+        "acr"
+      ],
+      "optionalClientScopes": [
+        "offline_access"
+      ]
+    },
+    {
+      "clientId": "estudioapp-mobile",
+      "name": "EstudioApp Mobile",
+      "description": "Cliente OIDC público de la app móvil EstudioApp (Ionic/Capacitor/Android Studio)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "bearerOnly": false,
+      "clientAuthenticatorType": "client-secret",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "ec.estudioapp.app://auth/callback"
+      ],
+      "webOrigins": [],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "defaultClientScopes": [
+        "openid",
+        "email",
+        "profile",
+        "roles",
+        "web-origins",
+        "acr"
+      ],
+      "optionalClientScopes": [
+        "offline_access"
+      ]
+    },
+    {
+      "clientId": "estudioapp-registration-service",
+      "name": "EstudioApp Registration Service",
+      "description": "Cliente de servicio (client_credentials) usado por el backend para crear usuarios en Keycloak",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "bearerOnly": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "estudioapp-registration-dev-secret",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "redirectUris": [],
+      "webOrigins": [],
+      "defaultClientScopes": [
+        "openid",
+        "web-origins"
+      ],
+      "optionalClientScopes": []
+    }
+  ],
+  "users": [
+    {
+      "username": "service-account-estudioapp-registration-service",
+      "enabled": true,
+      "serviceAccountClientId": "estudioapp-registration-service",
+      "clientRoles": {
+        "realm-management": [
+          "manage-users"
+        ]
+      }
+    },
+    {
+      "username": "estudiante",
+      "email": "estudiante@estudioapp.local",
+      "firstName": "Sofía",
+      "lastName": "Beltrán",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "estudio123",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "default-roles-estudioapp"
+      ]
+    },
+    {
+      "username": "admin",
+      "email": "admin@estudioapp.local",
+      "firstName": "Admin",
+      "lastName": "Principal",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admin1234",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "default-roles-estudioapp"
+      ]
+    }
+  ]
+}

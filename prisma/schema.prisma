@@ -1,8 +1,9 @@
-// ==========================================
-// CONFIGURACIÓN
-// ==========================================
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
 generator client {
   provider = "prisma-client-js"
+  output   = "../generated/prisma"
 }
 
 datasource db {
@@ -11,69 +12,9 @@ datasource db {
 }
 
 // ==========================================
-// MÓDULO ORGANIZACIONAL
+// MÓDULO DE USUARIOS Y AUTENTICACIÓN
 // ==========================================
-model Organization {
-  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name              String    @db.VarChar(150)
-  normalizedName    String    @unique @map("normalized_name") @db.VarChar(150)
-  legalName         String?   @map("legal_name") @db.VarChar(200)
-  taxIdentification String?   @map("tax_identification") @db.VarChar(30)
-  email             String?   @db.VarChar(180)
-  phone             String?   @db.VarChar(50)
-  domain            String?   @db.VarChar(150)
-  status            String    @db.VarChar(30)
-  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz
-  deletedAt         DateTime? @map("deleted_at") @db.Timestamptz
 
-  venues          Venue[]
-  roles           Role[]
-  userRoles       UserRole[]
-  accessRequests  OrganizationAccessRequest[]
-
-  @@map("organizations")
-}
-
-model Venue {
-  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organizationId String    @map("organization_id") @db.Uuid
-  name           String    @db.VarChar(150)
-  address        String?   @db.VarChar(255)
-  phone          String?   @db.VarChar(50)
-  email          String?   @db.VarChar(180)
-  status         String    @db.VarChar(30)
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
-  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  userRoles    UserRole[]
-
-  @@index([organizationId])
-  @@map("venues")
-}
-
-model OrganizationAccessRequest {
-  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organizationId  String    @map("organization_id") @db.Uuid
-  userId          String    @map("userId") @db.Uuid
-  status          String    @db.VarChar(30)
-  rejectionReason String?   @map("rejection_reason") @db.Text
-  reviewedByUserId String?  @map("reviewed_by_user_id") @db.Uuid
-  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  reviewedAt      DateTime? @map("reviewed_at") @db.Timestamptz
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  requester    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([organizationId])
-  @@map("organization_access_requests")
-}
-
-// ==========================================
-// USUARIOS Y AUTENTICACIÓN
-// ==========================================
 model User {
   id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   email        String   @unique @db.VarChar(180)
@@ -83,21 +24,26 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
-  profile         UserProfile?
-  authAccounts    AuthAccount[]
-  sessions        UserSession[]
-  userRoles       UserRole[]
-  accessRequests  OrganizationAccessRequest[]
+  profile     UserProfile?
+  authAccounts AuthAccount[]
+  sessions    UserSession[]
+  userRoles   UserRole[]
+  tasks       Task[]        // Relación con el módulo de tareas de estudioapp
+  auditLogs   AuditLog[]
 
   @@map("users")
 }
 
 model UserProfile {
-  userId         String   @id @map("user_id") @db.Uuid
-  firstName      String   @map("first_name") @db.VarChar(100)
-  lastName       String   @map("last_name") @db.VarChar(100)
-  identification String?  @db.VarChar(30)
-  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  userId          String    @id @map("user_id") @db.Uuid
+  firstName       String    @map("first_name") @db.VarChar(100)
+  lastName        String    @map("last_name") @db.VarChar(100)
+  identification  String?   @db.VarChar(30)
+  phone           String?   @db.VarChar(16)
+  avatarData      Bytes?    @map("avatar_data") @db.ByteA
+  avatarMimeType  String?   @map("avatar_mime_type") @db.VarChar(30)
+  avatarUpdatedAt DateTime? @map("avatar_updated_at") @db.Timestamptz
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -118,34 +64,59 @@ model AuthAccount {
 }
 
 model UserSession {
-  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId           String   @map("user_id") @db.Uuid
-  refreshTokenHash String   @map("refresh_token_hash") @db.Text
-  expiresAt        DateTime @map("expires_at") @db.Timestamptz
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  sealedTokens String   @map("sealed_tokens") @db.Text
+  expiresAt    DateTime @map("expires_at") @db.Timestamptz
+  revokedAt    DateTime @map("revoked_at") @db.Timestamptz
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([expiresAt])
   @@map("user_sessions")
 }
 
 // ==========================================
-// CONTROL DE ACCESO RBAC
+// MÓDULO DE TAREAS (ESTUDIOAPP)
 // ==========================================
+
+model Task {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  title       String    @db.VarChar(250)
+  description String?   @db.Text
+  status      String    @default("PENDING") @db.VarChar(30)
+  dueDate     DateTime? @map("due_date") @db.Timestamptz
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("tasks")
+}
+
+// ==========================================
+// MÓDULO DE ROLES, PERMISOS Y MENÚS
+// ==========================================
+
 model Role {
-  id             String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  organizationId String? @map("organization_id") @db.Uuid
-  code           String  @db.VarChar(100)
-  name           String  @db.VarChar(150)
-  normalizedName String? @map("normalized_name") @db.VarChar(150)
-  isSystem       Boolean @default(false) @map("is_system")
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code           String    @db.VarChar(100)
+  name           String    @db.VarChar(150)
+  normalizedName String    @map("normalized_name") @db.VarChar(150)
+  description    String?   @db.Text
+  isSystem       Boolean   @default(false) @map("is_system")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
   deletedAt      DateTime? @map("deleted_at") @db.Timestamptz
 
-  organization Organization?    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  permissions  RolePermission[]
-  userRoles    UserRole[]
+  permissions RolePermission[]
+  userRoles   UserRole[]
 
-  @@index([organizationId])
   @@map("roles")
 }
 
@@ -154,7 +125,8 @@ model Permission {
   module      String   @db.VarChar(100)
   action      String   @db.VarChar(100)
   code        String   @unique @db.VarChar(200)
-  description String?  @db.VarChar(255)
+  description String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   roles RolePermission[]
   menus MenuPermission[]
@@ -175,25 +147,17 @@ model RolePermission {
 }
 
 model UserRole {
-  id             String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId         String  @map("user_id") @db.Uuid
-  roleId         String  @map("role_id") @db.Uuid
-  organizationId String? @map("organization_id") @db.Uuid
-  venueId        String? @map("venue_id") @db.Uuid
+  id     String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  roleId String @map("role_id") @db.Uuid
 
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role         Role          @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  venue        Venue?        @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
   @@index([userId])
-  @@index([organizationId, venueId])
   @@map("user_roles")
 }
 
-// ==========================================
-// MENÚS DINÁMICOS
-// ==========================================
 model Menu {
   id       String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   parentId String? @map("parent_id") @db.Uuid
@@ -219,17 +183,30 @@ model MenuPermission {
   @@map("menu_permissions")
 }
 
-model AuditLog {
-  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  actorUserId    String   @map("actor_user_id") @db.Uuid
-  organizationId String?  @map("organization_id") @db.Uuid
-  entityId       String   @map("entity_id") @db.Uuid
-  entityType     String   @map("entity_type") @db.VarChar(100)
-  action         String   @db.VarChar(100)
-  changes        Json?    @db.JsonB
-  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+// ==========================================
+// MÓDULO DE AUDITORÍA
+// ==========================================
 
-  @@index([organizationId])
+enum AuditAction {
+  TASK_CREATED
+  TASK_UPDATED
+  TASK_DELETED
+  USER_LOGGED_IN
+}
+
+model AuditLog {
+  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actorUserId String      @map("actor_user_id") @db.Uuid
+  entityType  String      @map("entity_type") @db.VarChar(100)
+  entityId    String      @map("entity_id") @db.Uuid
+  action      AuditAction
+  changes     Json
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz
+
+  actor User @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+
   @@index([actorUserId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
   @@map("audit_logs")
 }

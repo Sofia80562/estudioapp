@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
 	count: vi.fn(),
 }));
 
+// Mockeamos la ruta del cliente de base de datos relativa a la carpeta menus
 vi.mock('@/database/client', () => ({
 	prisma: {
 		menu: {
