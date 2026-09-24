@@ -97,13 +97,6 @@ const loadUserWithAccess = async (userId: string) =>
         },
     });
 
-/**
- * Carga el usuario con sus roles y permisos vigentes.
- *
- * El middleware `auth` la llama en CADA petición, en vez de leer al usuario de la cookie.
- * Cuesta una consulta, y a cambio un rol o permiso concedido surte efecto de inmediato,
- * sin obligar al usuario a cerrar sesión y volver a entrar.
- */
 export const getSessionUser = async (userId: string): Promise<SessionUser | null> => {
     const user = await loadUserWithAccess(userId);
 
@@ -286,21 +279,31 @@ export const getRolesByUserId = async (userId: string) => {
     return userRoles.map(ur => ur.role);
 };
 
-export const assignRolesToUser = async (userId: string, roleIds: string[]) =>
+export const assignRolesToUser = async (userId: string, roles: Array<{ id: string }>) =>
     prisma.$transaction(async transaction => {
         await transaction.userRole.deleteMany({
             where: { userId },
         });
 
-        if (roleIds.length > 0) {
+        if (roles.length > 0) {
             await transaction.userRole.createMany({
-                data: roleIds.map(roleId => ({
+                data: roles.map(role => ({
                     userId,
-                    roleId,
+                    roleId: role.id,
                 })),
             });
         }
     });
+
+export const addRolesToUser = async (userId: string, roles: Array<{ id: string }>) => {
+    await prisma.userRole.createMany({
+        data: roles.map(role => ({
+            userId,
+            roleId: role.id,
+        })),
+        skipDuplicates: true,
+    });
+};
 
 export const addRoleToUser = async (userId: string, roleId: string) => {
     await prisma.userRole.create({
@@ -308,9 +311,176 @@ export const addRoleToUser = async (userId: string, roleId: string) => {
     });
 };
 
-export const removeRoleFromUser = async (userId: string, roleId: string) => {
-    await prisma.userRole.deleteMany({
+export const removeRoleFromUser = async (userId: string, roleId: string): Promise<boolean> => {
+    const result = await prisma.userRole.deleteMany({
         where: { userId, roleId },
+    });
+    return result.count > 0;
+};
+
+// --- Nuevas funciones requeridas por los servicios ---
+
+export const getAssignableRoles = async (roleIds?: string[]) => {
+    return prisma.role.findMany({
+        where: roleIds ? { id: { in: roleIds } } : undefined,
+    });
+};
+
+export const createWithRoles = async (data: CreateUserBody & { organizationId?: string }, roles: Array<{ id: string }>) => {
+    return prisma.user.create({
+        data: {
+            email: data.email,
+            username: data.email.split('@')[0] || data.email,
+            status: 'ACTIVE',
+            profile: {
+                create: {
+                    firstName: data.firstName,
+                    lastName: data.lastName,
+                },
+            },
+            userRoles: {
+                create: roles.map(role => ({
+                    roleId: role.id,
+                })),
+            },
+        },
+        include: {
+            profile: true,
+            userRoles: {
+                include: { role: true },
+            },
+        },
+    });
+};
+
+export const getAdminProfile = async (userId: string) => {
+    return prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+            profile: true,
+        },
+    });
+};
+
+export const updateAdminProfile = async (userId: string, body: any, _isAdmin: boolean) => {
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: { profile: true },
+    });
+
+    if (!user) {
+        return { outcome: 'NOT_FOUND' as const };
+    }
+
+    if (user.status !== 'ACTIVE') {
+        return { outcome: 'INACTIVE' as const };
+    }
+
+    const updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: {
+            profile: {
+                update: {
+                    ...(body.firstName && { firstName: body.firstName }),
+                    ...(body.lastName && { lastName: body.lastName }),
+                },
+            },
+        },
+        include: { profile: true },
+    });
+
+    return { outcome: 'UPDATED' as const, user: updatedUser };
+};
+
+export const getOwnProfile = async (userId: string) => {
+    return prisma.userProfile.findUnique({
+        where: { userId },
+    });
+};
+
+export const updateOwnProfile = async (userId: string, body: any) => {
+    try {
+        return await prisma.userProfile.update({
+            where: { userId },
+            data: { ...body },
+        });
+    } catch {
+        return null;
+    }
+};
+
+export const getOwnAvatar = async (userId: string) => {
+    return prisma.userProfile.findUnique({
+        where: { userId },
+        select: {
+            avatarData: true,
+            avatarMimeType: true,
+            avatarUpdatedAt: true,
+        },
+    });
+};
+
+export const updateOwnAvatar = async (userId: string, avatar: { data: Buffer | string; mimeType: string }) => {
+    return prisma.userProfile.update({
+        where: { userId },
+        data: {
+            avatarData: avatar.data as any,
+            avatarMimeType: avatar.mimeType,
+            avatarUpdatedAt: new Date(),
+        },
+    });
+};
+
+export const removeOwnAvatar = async (userId: string) => {
+    try {
+        await prisma.userProfile.update({
+            where: { userId },
+            data: {
+                avatarData: null,
+                avatarMimeType: null,
+                avatarUpdatedAt: null,
+            },
+        });
+        return { count: 1 };
+    } catch {
+        return { count: 0 };
+    }
+};
+
+export const updateWithRoles = async (userId: string, data: any, roles?: Array<{ id: string }>) => {
+    return prisma.$transaction(async tx => {
+        if (roles !== undefined) {
+            await tx.userRole.deleteMany({ where: { userId } });
+            if (roles.length > 0) {
+                await tx.userRole.createMany({
+                    data: roles.map(role => ({ userId, roleId: role.id })),
+                });
+            }
+        }
+
+        const user = await tx.user.update({
+            where: { id: userId },
+            data: {
+                ...(data.email && { email: data.email }),
+                ...(data.firstName || data.lastName
+                    ? {
+                        profile: {
+                            update: {
+                                ...(data.firstName && { firstName: data.firstName }),
+                                ...(data.lastName && { lastName: data.lastName }),
+                            },
+                        },
+                    }
+                    : {}),
+            },
+            include: {
+                profile: true,
+                userRoles: {
+                    include: { role: true },
+                },
+            },
+        });
+        return user;
     });
 };
 
@@ -346,4 +516,25 @@ export const record = (userId: string) => ({
             },
             select: selectUserFields,
         }),
-});
+})
+
+export async function createFromRegistration(
+    keycloakId: string, 
+    profile: { email: string; firstName: string; lastName: string }, 
+    roleId: string
+) {
+    return (prisma as any).user.create({
+        data: {
+            keycloakId,
+            email: profile.email,
+            roles: { connect: { id: roleId } },
+            profile: {
+                create: {
+                    firstName: profile.firstName,
+                    lastName: profile.lastName,
+                },
+            },
+        },
+        include: { profile: true },
+    });
+}

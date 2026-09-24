@@ -2,7 +2,6 @@ import { defaults as ironDefaults, seal, unseal } from '@hapi/iron';
 import type { NextApiResponse } from 'next';
 
 import { AuthenticationError } from '@/errors/auth';
-
 import { env } from '@/lib/config/env';
 import { appendSetCookie, buildCookieHeader, buildExpiredCookieHeader } from '@/lib/http/cookies';
 
@@ -32,6 +31,14 @@ export type SessionTokenSet = {
 	tokenType?: string | null;
 	expiresAt: string;
 	nonce?: string | null;
+	/**
+	 * Qué cliente OAuth emitió estos tokens (`estudioapp-api` o `estudioapp-mobile`). Sin esto,
+	 * refresh/logout no saben con qué cliente hablarle a Keycloak y éste rechaza la
+	 * operación ("Token client and authorized client don't match") si se usa el equivocado.
+	 * Opcional por compatibilidad con sesiones creadas anteriormente:
+	 * ausente = cliente web confidencial, el comportamiento de siempre.
+	 */
+	clientId?: string;
 };
 
 /**
@@ -176,4 +183,4 @@ export const clearTemporaryOAuthCookie = (response: NextApiResponse): void => {
 			}),
 		),
 	);
-}; 
+};

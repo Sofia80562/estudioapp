@@ -1,5 +1,5 @@
-// Importa desde la ruta de salida que configuraste en tu schema.prisma
-import { PrismaClient } from '../generated/prisma'; 
+// database/client.ts
+import { PrismaClient } from '@/generated/prisma'; 
 import { env } from '@/lib/config/env';
 
 const globalForPrisma = globalThis as typeof globalThis & {

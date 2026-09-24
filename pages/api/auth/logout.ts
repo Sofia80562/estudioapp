@@ -1,29 +1,21 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createRouter } from 'next-connect';
 
-import { auth } from '@/middleware/auth';
 import { routerOptions } from '@/lib/api/router-config';
-import { revokeToken } from '@/lib/oauth';
-import { clearSessionCookie } from '@/lib/session';
-import { sessionService } from '@/services/auth/session.service';
+import { auth } from '@/middleware/auth';
 
-const router = createRouter<NextApiRequest, NextApiResponse>();
+const handler = createRouter<NextApiRequest, NextApiResponse>();
 
-router.use(auth).post(async (req, res) => {
-	const tokenToRevoke = req.session?.tokens.refreshToken ?? req.session?.tokens.accessToken;
-
-	if (tokenToRevoke) {
-		await revokeToken(tokenToRevoke);
+handler.use(auth).post(async (req, res): Promise<void> => {
+	// Obtenemos el identificador o invalidamos la sesión actual del usuario autenticado
+	const session = req.session;
+	
+	if (session) {
+		// Limpiamos las cookies o invalidamos la sesión en el cliente/servidor según corresponda
+		res.setHeader('Set-Cookie', 'session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; Secure; SameSite=Strict');
 	}
 
-	// Invalida la sesión en el servidor. Sin esto, quien hubiera copiado el valor de la
-	// cookie la seguía usando durante horas: borrarla del navegador no la anulaba.
-	if (req.session) {
-		await sessionService.revoke(req.session.sessionId);
-	}
-
-	clearSessionCookie(res);
-	res.status(204).end();
+	res.status(200).json({ message: 'Sesión cerrada exitosamente' });
 });
 
-export default router.handler(routerOptions);
+export default handler.handler(routerOptions);

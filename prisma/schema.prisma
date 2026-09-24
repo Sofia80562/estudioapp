@@ -16,20 +16,21 @@ datasource db {
 // ==========================================
 
 model User {
-  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email        String   @unique @db.VarChar(180)
-  username     String?  @unique @db.VarChar(100)
-  passwordHash String?  @map("password_hash") @db.Text
-  status       String   @db.VarChar(30)
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email        String       @unique @db.VarChar(180)
+  username     String?      @unique @db.VarChar(100)
+  passwordHash String?      @map("password_hash") @db.Text
+  status       String       @db.VarChar(30)
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime     @updatedAt @map("updated_at") @db.Timestamptz
 
-  profile     UserProfile?
-  authAccounts AuthAccount[]
-  sessions    UserSession[]
-  userRoles   UserRole[]
-  tasks       Task[]        // Relación con el módulo de tareas de estudioapp
-  auditLogs   AuditLog[]
+  profile               UserProfile?
+  authAccounts          AuthAccount[]
+  sessions              UserSession[]
+  userRoles             UserRole[]
+  tasks                 Task[]
+  auditLogs             AuditLog[]
+  studySessionBookings  StudySessionBooking[]
 
   @@map("users")
 }
@@ -40,6 +41,16 @@ model UserProfile {
   lastName        String    @map("last_name") @db.VarChar(100)
   identification  String?   @db.VarChar(30)
   phone           String?   @db.VarChar(16)
+  
+  // --- CAMPOS DE REDES SOCIALES QUE RECLAMA EL SERVICIO ---
+  facebookUrl     String?   @map("facebook_url") @db.VarChar(255)
+  instagramUrl    String?   @map("instagram_url") @db.VarChar(255)
+  linkedinUrl     String?   @map("linkedin_url") @db.VarChar(255)
+  xUrl            String?   @map("x_url") @db.VarChar(255)
+  githubUrl       String?   @map("github_url") @db.VarChar(255)
+  tiktokUrl       String?   @map("tiktok_url") @db.VarChar(255)
+  websiteUrl      String?   @map("website_url") @db.VarChar(255)
+  
   avatarData      Bytes?    @map("avatar_data") @db.ByteA
   avatarMimeType  String?   @map("avatar_mime_type") @db.VarChar(30)
   avatarUpdatedAt DateTime? @map("avatar_updated_at") @db.Timestamptz
@@ -105,6 +116,7 @@ model Task {
 
 model Role {
   id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  organizationId String?   @map("organization_id") @db.Uuid // <-- AÑADIDO AQUÍ
   code           String    @db.VarChar(100)
   name           String    @db.VarChar(150)
   normalizedName String    @map("normalized_name") @db.VarChar(150)
@@ -135,8 +147,8 @@ model Permission {
 }
 
 model RolePermission {
-  roleId       String @map("role_id") @db.Uuid
-  permissionId String @map("permission_id") @db.Uuid
+  roleId       String  @map("role_id") @db.Uuid
+  permissionId String  @map("permission_id") @db.Uuid
   granted      Boolean @default(true)
 
   role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
@@ -209,4 +221,115 @@ model AuditLog {
   @@index([entityType, entityId])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+// ==========================================
+// MÓDULO DE INSTITUCIONES Y CURSOS (ESTUDIOAPP)
+// ==========================================
+
+model Institution {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String   @db.VarChar(150)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  courses Course[]
+
+  @@map("institutions")
+}
+
+model Course {
+  id            String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  institutionId String?      @map("institution_id") @db.Uuid
+  code          String       @unique @db.VarChar(50)
+  title         String       @db.VarChar(150)
+  description   String?      @db.Text
+  credits       Int?         @default(0)
+  semester      Int?
+  status        String       @default("ACTIVE") @db.VarChar(30)
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+  deletedAt     DateTime?    @map("deleted_at") @db.Timestamptz
+
+  institution   Institution? @relation(fields: [institutionId], references: [id], onDelete: SetNull)
+  sections      Section[]
+  studySessions StudySession[]
+
+  @@index([institutionId])
+  @@map("courses")
+}
+
+// ==========================================
+// MÓDULO DE SECCIONES Y MATERIALES (ESTUDIOAPP)
+// ==========================================
+
+model Section {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  courseId          String    @map("course_id") @db.Uuid
+  name              String    @db.VarChar(150)
+  description       String?   @db.Text
+  classroom         String?   @db.VarChar(100)
+  schedule          String?   @db.VarChar(150)
+  capacity          Int?
+  expectedUpdatedAt DateTime? @map("expected_updated_at") @db.Timestamptz
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  course    Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  materials Material[]
+
+  @@index([courseId])
+  @@map("sections")
+}
+
+model Material {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sectionId String   @map("section_id") @db.Uuid
+  title     String   @db.VarChar(250)
+  type      String   @db.VarChar(50)
+  url       String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  section Section @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@index([sectionId])
+  @@map("materials")
+}
+
+// ==========================================
+// MÓDULO DE IA Y SESIONES DE ESTUDIO (ESTUDIOAPP)
+// ==========================================
+
+model StudySession {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  courseId  String   @map("course_id") @db.Uuid
+  status    String   @default("PUBLISHED") @db.VarChar(30)
+  startsAt  DateTime @map("starts_at") @db.Timestamptz
+  endsAt    DateTime @map("ends_at") @db.Timestamptz
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  course   Course                @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  bookings StudySessionBooking[]
+
+  @@index([status])
+  @@index([startsAt])
+  @@map("study_sessions")
+}
+
+model StudySessionBooking {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studySessionId String   @map("study_session_id") @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  status         String   @default("CONFIRMED") @db.VarChar(30)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  studySession StudySession @relation(fields: [studySessionId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([studySessionId])
+  @@map("study_session_bookings")
 }

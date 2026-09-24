@@ -17,7 +17,7 @@ export const auth = async (
 			sessionId: 'dev-session',
 			user: {
 				id: 'dev-user',
-				email: 'dev@canchago.local',
+				email: 'dev@estudioapp.local',
 				name: 'Development User',
 				roles: [],
 				permissions: [],
@@ -36,16 +36,22 @@ export const auth = async (
 		return;
 	}
 
-	const cookieValue = req.cookies[env.SESSION_COOKIE_NAME];
+	// El cliente móvil manda el payload sellado vía `Authorization: Bearer <token>`.
+	// Se comprueba primero porque es la fuente de verdad explícita del cliente.
+	const authorizationHeader = req.headers.authorization;
+	const bearerToken = authorizationHeader?.startsWith('Bearer ')
+		? authorizationHeader.slice('Bearer '.length)
+		: undefined;
 
-	if (!cookieValue) {
+	const sealedValue = bearerToken ?? req.cookies[env.SESSION_COOKIE_NAME];
+
+	if (!sealedValue) {
 		throw new AuthenticationError();
 	}
 
-	// La cookie sólo trae el id de sesión. El usuario, sus roles y sus permisos se
-	// leen de la base en cada petición, así que un permiso concedido surte efecto
-	// de inmediato, y una sesión revocada deja de valer al instante.
-	const { sessionId } = await decrypt(cookieValue);
+	// El payload sellado sólo trae el id de sesión. El usuario, sus roles y sus permisos se
+	// leen de la base en cada petición para reflejar cambios de inmediato.
+	const { sessionId } = await decrypt(sealedValue);
 	const session = await sessionService.resolve(sessionId);
 
 	req.session = session;

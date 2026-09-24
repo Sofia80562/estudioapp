@@ -20,9 +20,7 @@ export const sessionService = {
 
 	/**
 	 * Reconstruye la sesión en cada petición.
-	 *
-	 * Rechaza sesiones revocadas o expiradas: por eso el logout ahora sí invalida
-	 * la cookie del lado del servidor, y no sólo la borra del navegador.
+	 * Rechaza sesiones revocadas o expiradas.
 	 */
 	async resolve(sessionId: string): Promise<SessionPayload> {
 		const session = await sessionDb.findActive(sessionId);

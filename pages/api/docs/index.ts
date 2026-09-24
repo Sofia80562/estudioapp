@@ -8,6 +8,7 @@ const html = `<!DOCTYPE html>
     <title>EstudioApp API Docs</title>
     <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist/swagger-ui.css" />
     <style>
+      /* Oculta el campo de URL del spec para evitar confusión */
       .swagger-ui .topbar { display: none; }
     </style>
   </head>
@@ -22,8 +23,13 @@ const html = `<!DOCTYPE html>
         layout: 'BaseLayout',
         docExpansion: 'list',
         defaultModelsExpandDepth: -1,
+        /* Envía cookies de sesión automáticamente en cada llamada */
+        withCredentials: true,
+        /* Mantiene el estado de "Authorize" al recargar */
         persistAuthorization: true,
+        /* Muestra la duración de cada respuesta */
         displayRequestDuration: true,
+        /* Activa el "Try it out" en todos los endpoints por defecto */
         tryItOutEnabled: true,
       });
     </script>
@@ -31,6 +37,6 @@ const html = `<!DOCTYPE html>
 </html>`;
 
 export default function handler(_req: NextApiRequest, res: NextApiResponse): void {
-  res.setHeader('Content-Type', 'text/html');
-  res.status(200).send(html);
+	res.setHeader('Content-Type', 'text/html');
+	res.status(200).send(html);
 }
