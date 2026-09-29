@@ -1,95 +1,104 @@
 import { prisma } from '@/database/client';
+import { NotFoundError } from '@/errors/not-found-error';
+import { normalizePagination } from '@/helper/pagination';
 
-export const isRoleUniqueConstraintError = (error: any): boolean => {
-    return error?.code === 'P2002';
+export const isRoleUniqueConstraintError = (error: unknown): boolean => {
+	if (typeof error === 'object' && error !== null && 'code' in error) {
+		return (error as { code: string }).code === 'P2002';
+	}
+	return false;
 };
 
-export type RoleTransactionRepository = {
-    findPermissions(permissionIds: string[]): Promise<any[]>;
-    createRole(data: any): Promise<any>;
-    updateRole(id: string, expectedUpdatedAt: any, data: any, options?: any): Promise<any>;
-    replacePermissions(roleId: string, permissionIds: string[]): Promise<any>;
-    writeAudit(auditData: any, entity?: string, entityId?: string, details?: any): Promise<any>;
-    getDetail(id: string, actingUser?: any): Promise<any>;
-    findRole(id: string, actingUser?: any): Promise<any>;
-    softDelete(id: string): Promise<any>;
-    removeRole(id: string): Promise<any>;
+type TransactionClient = any;
+
+const createTransactionRepository = (transaction: TransactionClient) => ({
+	findRole: (roleId: string) =>
+		transaction.role.findFirst({
+			where: { id: roleId, deletedAt: null },
+		}),
+
+	createRole: (data: {
+		code: string;
+		name: string;
+		normalizedName: string;
+		description?: string | null;
+		isSystem?: boolean;
+	}) =>
+		transaction.role.create({
+			data,
+		}),
+
+	updateRole: (roleId: string, expectedUpdatedAt: Date, data: any) =>
+		transaction.role.updateMany({
+			where: { id: roleId, updatedAt: expectedUpdatedAt, deletedAt: null },
+			data,
+		}),
+
+	removeRole: (roleId: string) =>
+		transaction.role.update({
+			where: { id: roleId },
+			data: { deletedAt: new Date() },
+		}),
+});
+
+export type RoleTransactionRepository = ReturnType<typeof createTransactionRepository>;
+
+export const getAll = async (
+	filters: { search?: string; page?: number; pageSize?: number }
+) => {
+	const { skip, take, meta } = normalizePagination(filters);
+
+	const where: any = { deletedAt: null };
+
+	if (filters.search) {
+		where.OR = [
+			{ name: { contains: filters.search, mode: 'insensitive' } },
+			{ code: { contains: filters.search, mode: 'insensitive' } },
+		];
+	}
+
+	const [roles, total] = await Promise.all([
+		prisma.role.findMany({
+			where,
+			include: {
+				_count: { select: { permissions: true, userRoles: true } },
+			},
+			skip,
+			take,
+			orderBy: { createdAt: 'desc' },
+		}),
+		prisma.role.count({ where }),
+	]);
+
+	const mappedRoles = roles.map((role: any) => {
+		const { _count, ...rest } = role;
+		return {
+			...rest,
+			permissionsCount: _count?.permissions ?? 0,
+			usersCount: _count?.userRoles ?? 0,
+		};
+	});
+
+	return { roles: mappedRoles, meta: meta(total) };
 };
 
-export const roleDb = {
-    async getRoles(filters?: any, pagination?: any) {
-        return { items: [], meta: { total: 0, page: 1, pageSize: 20, totalPages: 1 } };
-    },
+export const getUnique = async (roleId: string) => {
+	const record = await prisma.role.findFirst({
+		where: { id: roleId, deletedAt: null },
+		include: {
+			permissions: {
+				include: { permission: true },
+			},
+		},
+	});
 
-    async getRoleById(id: string, actingUser?: any) {
-        return prisma.role.findUnique({
-            where: { id },
-            include: { permissions: true },
-        });
-    },
+	if (!record) {
+		throw new NotFoundError('El rol solicitado no existe.');
+	}
 
-    async getRolePermissions(roleId: string, pagination?: any, filters?: any, actingUser?: any) {
-        const role = await prisma.role.findUnique({
-            where: { id: roleId },
-            include: { permissions: true },
-        });
-        return role?.permissions ?? [];
-    },
-
-    async actorHasOrganizationScope(actorId: string, organizationId: string): Promise<boolean> {
-        return true;
-    },
-
-    async withTransaction<T>(fn: (repository: RoleTransactionRepository) => Promise<T>): Promise<T> {
-        return prisma.$transaction(async (tx: any) => {
-            const repository: RoleTransactionRepository = {
-                async findPermissions(permissionIds: string[]) {
-                    return tx.permission.findMany({
-                        where: { id: { in: permissionIds } },
-                    });
-                },
-                async createRole(data) {
-                    return tx.role.create({ data });
-                },
-                async updateRole(id, expectedUpdatedAt, data, options) {
-                    return tx.role.update({
-                        where: { id },
-                        data,
-                    });
-                },
-                async replacePermissions(roleId, permissionIds) {
-                    return tx.role.update({
-                        where: { id: roleId },
-                        data: {
-                            permissions: {
-                                set: permissionIds.map((pId) => ({ id: pId })),
-                            },
-                        },
-                    });
-                },
-                async writeAudit(auditData, entity, entityId, details) {
-                    return { auditData, entity, entityId, details };
-                },
-                async getDetail(id, actingUser) {
-                    return tx.role.findUnique({
-                        where: { id },
-                        include: { permissions: true },
-                    });
-                },
-                async findRole(id, actingUser) {
-                    return tx.role.findUnique({ where: { id } });
-                },
-                async softDelete(id) {
-                    return tx.role.update({
-                        where: { id },
-                        data: { deletedAt: new Date() },
-                    });
-                },
-                async removeRole(id) {
-                    return tx.role.delete({ where: { id } });
-                },
-            };
-            return fn(repository);
-        });
-    },
+	return record;
 };
+
+export const withTransaction = <T>(
+	operation: (repository: RoleTransactionRepository) => Promise<T>,
+) => prisma.$transaction(transaction => operation(createTransactionRepository(transaction)));

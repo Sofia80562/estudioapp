@@ -1,48 +1,60 @@
-import { Prisma } from '@/generated/prisma';
 import { prisma } from '@/database/client';
-import { AI_MAX_CANDIDATES } from '@/validations/ai';
-import type { StudySlotRecommendationsBody } from '@/validations/ai';
 
-export const listAvailableCandidates = async (input: StudySlotRecommendationsBody) => {
-    const sessions = await prisma.studySession.findMany({
-        where: {
-            status: 'PUBLISHED',
-            startsAt: { gte: new Date(input.from), lte: new Date(input.to) },
-        },
-        select: {
-            id: true,
-            startsAt: true,
-            endsAt: true,
-            // Si ya tienes la relación con cursos en tu esquema, descomenta esto:
-            /*
-            course: {
-                select: {
-                    id: true,
-                    name: true,
-                    description: true,
-                },
-            },
-            */
-        },
-        orderBy: { startsAt: 'asc' },
-        take: AI_MAX_CANDIDATES * 3,
-    });
-    return sessions.slice(0, AI_MAX_CANDIDATES);
-};
+/**
+ * Obtiene el resumen académico y de tareas del usuario para que la IA
+ * pueda darle recomendaciones de estudio personalizadas.
+ */
+export const getUserStudyContextForAI = async (userId: string) => {
+	// 1. Buscar las tareas pendientes o en progreso del estudiante
+	const pendingTasks = await prisma.task.findMany({
+		where: {
+			userId,
+			status: { not: 'COMPLETED' },
+		},
+		select: {
+			id: true,
+			title: true,
+			description: true,
+			priority: true,
+			dueDate: true,
+		},
+		orderBy: { dueDate: 'asc' },
+		take: 10,
+	});
 
-export const listUpcomingOwnStudySessions = (userId: string, horizonDays: number) => {
-    const until = new Date(Date.now() + horizonDays * 24 * 60 * 60 * 1000);
-    return prisma.studySessionBooking.findMany({
-        where: {
-            userId,
-            status: 'CONFIRMED',
-            studySession: { startsAt: { gt: new Date(), lte: until } },
-        },
-        select: {
-            id: true,
-            studySession: { select: { startsAt: true, endsAt: true } },
-        },
-        orderBy: { studySession: { startsAt: 'asc' } },
-        take: AI_MAX_CANDIDATES,
-    });
+	// 2. Buscar los cursos en los que está inscrito el estudiante a través de sus secciones
+	const userBookings = await prisma.studySessionBooking.findMany({
+		where: { userId, status: 'CONFIRMED' },
+		include: {
+			studySession: {
+				include: {
+					course: {
+						select: {
+							title: true,
+							code: true,
+						},
+					},
+				},
+			},
+		},
+		take: 5,
+	});
+
+	// 3. Obtener el historial reciente de tiempo de estudio (cronómetro)
+	const recentStudyLogs = await prisma.studyTimeLog.findMany({
+		where: { userId },
+		orderBy: { createdAt: 'desc' },
+		take: 5,
+		select: {
+			durationMinutes: true,
+			sessionType: true,
+			createdAt: true,
+		},
+	});
+
+	return {
+		pendingTasks,
+		enrolledCourses: userBookings.map((b) => b.studySession.course),
+		recentStudyLogs,
+	};
 };

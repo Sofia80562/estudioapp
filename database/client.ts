@@ -1,19 +1,15 @@
-// database/client.ts
-import { PrismaClient } from '@/generated/prisma'; 
+import { PrismaClient } from '../generated/prisma';
+import { PrismaPg } from '@prisma/adapter-pg';
 import { env } from '@/lib/config/env';
 
 const globalForPrisma = globalThis as typeof globalThis & {
-    prisma?: PrismaClient;
+	prisma?: PrismaClient;
 };
 
-export const prisma = globalForPrisma.prisma ?? new PrismaClient({
-    datasources: {
-        db: {
-            url: env.DATABASE_URL,
-        },
-    },
-});
+const adapter = new PrismaPg({ connectionString: env.DATABASE_URL });
+
+export const prisma = globalForPrisma.prisma ?? new PrismaClient({ adapter });
 
 if (process.env.NODE_ENV !== 'production') {
-    globalForPrisma.prisma = prisma;
+	globalForPrisma.prisma = prisma;
 }
