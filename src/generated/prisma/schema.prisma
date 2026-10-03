@@ -2,8 +2,9 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
+  provider        = "prisma-client-js"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
@@ -16,10 +17,10 @@ datasource db {
 // ==========================================
 
 model User {
-  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id           String   @id @default(uuid()) @db.Uuid
   email        String   @unique @db.VarChar(180)
   username     String?  @unique @db.VarChar(100)
-  passwordHash String?  @map("password_hash") @db.Text
+  passwordHash String?  @map("password_hash")
   status       String   @db.VarChar(30)
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
@@ -51,7 +52,7 @@ model UserProfile {
   tiktokUrl    String? @map("tiktok_url") @db.VarChar(255)
   websiteUrl   String? @map("website_url") @db.VarChar(255)
 
-  avatarData      Bytes?    @map("avatar_data") @db.ByteA
+  avatarData      Bytes?    @map("avatar_data")
   avatarMimeType  String?   @map("avatar_mime_type") @db.VarChar(30)
   avatarUpdatedAt DateTime? @map("avatar_updated_at") @db.Timestamptz
   updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz
@@ -62,7 +63,7 @@ model UserProfile {
 }
 
 model AuthAccount {
-  id                String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id                String @id @default(uuid()) @db.Uuid
   userId            String @map("user_id") @db.Uuid
   provider          String @db.VarChar(50)
   providerAccountId String @map("provider_account_id") @db.VarChar(200)
@@ -75,9 +76,9 @@ model AuthAccount {
 }
 
 model UserSession {
-  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id           String   @id @default(uuid()) @db.Uuid
   userId       String   @map("user_id") @db.Uuid
-  sealedTokens String   @map("sealed_tokens") @db.Text
+  sealedTokens String   @map("sealed_tokens")
   expiresAt    DateTime @map("expires_at") @db.Timestamptz
   revokedAt    DateTime @map("revoked_at") @db.Timestamptz
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
@@ -95,10 +96,10 @@ model UserSession {
 // ==========================================
 
 model Task {
-  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id          String    @id @default(uuid()) @db.Uuid
   userId      String    @map("user_id") @db.Uuid
   title       String    @db.VarChar(250)
-  description String?   @db.Text
+  description String?
   status      String    @default("PENDING") @db.VarChar(30)
   priority    String    @default("MEDIUM") @db.VarChar(10)
   dueDate     DateTime? @map("due_date") @db.Timestamptz
@@ -113,7 +114,7 @@ model Task {
 }
 
 model Alert {
-  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id            String   @id @default(uuid()) @db.Uuid
   taskId        String   @map("task_id") @db.Uuid
   scheduledTime DateTime @map("scheduled_time") @db.Timestamptz
   sent          Boolean  @default(false)
@@ -130,7 +131,7 @@ model Alert {
 // ==========================================
 
 model StudyTimeLog {
-  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id              String   @id @default(uuid()) @db.Uuid
   userId          String   @map("user_id") @db.Uuid
   startTime       DateTime @map("start_time") @db.Timestamptz
   durationMinutes Int      @map("duration_minutes")
@@ -148,12 +149,12 @@ model StudyTimeLog {
 // ==========================================
 
 model Role {
-  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id             String    @id @default(uuid()) @db.Uuid
   organizationId String?   @map("organization_id") @db.Uuid
   code           String    @db.VarChar(100)
   name           String    @db.VarChar(150)
   normalizedName String    @map("normalized_name") @db.VarChar(150)
-  description    String?   @db.Text
+  description    String?
   isSystem       Boolean   @default(false) @map("is_system")
   createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz
@@ -166,11 +167,11 @@ model Role {
 }
 
 model Permission {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id          String   @id @default(uuid()) @db.Uuid
   module      String   @db.VarChar(100)
   action      String   @db.VarChar(100)
   code        String   @unique @db.VarChar(200)
-  description String?  @db.Text
+  description String?
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   roles RolePermission[]
@@ -192,7 +193,7 @@ model RolePermission {
 }
 
 model UserRole {
-  id     String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id     String @id @default(uuid()) @db.Uuid
   userId String @map("user_id") @db.Uuid
   roleId String @map("role_id") @db.Uuid
 
@@ -204,7 +205,7 @@ model UserRole {
 }
 
 model Menu {
-  id       String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id       String  @id @default(uuid()) @db.Uuid
   parentId String? @map("parent_id") @db.Uuid
   code     String  @unique @db.VarChar(100)
   name     String  @db.VarChar(150)
@@ -240,12 +241,12 @@ enum AuditAction {
 }
 
 model AuditLog {
-  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id          String      @id @default(uuid()) @db.Uuid
   actorUserId String      @map("actor_user_id") @db.Uuid
   entityType  String      @map("entity_type") @db.VarChar(100)
   entityId    String      @map("entity_id") @db.Uuid
   action      AuditAction
-  changes     Json
+  changes     Json?
   createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz
 
   actor User @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
@@ -261,10 +262,10 @@ model AuditLog {
 // ==========================================
 
 model Institution {
-  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id          String    @id @default(uuid()) @db.Uuid
   name        String    @db.VarChar(150)
   code        String?   @unique @db.VarChar(50)
-  description String?   @db.Text
+  description String?
   status      String    @default("ACTIVE") @db.VarChar(30)
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz
@@ -277,11 +278,11 @@ model Institution {
 }
 
 model Campus {
-  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id            String    @id @default(uuid()) @db.Uuid
   institutionId String    @map("institution_id") @db.Uuid
   name          String    @db.VarChar(150)
   code          String    @db.VarChar(50)
-  address       String?   @db.Text
+  address       String?
   status        String    @default("ACTIVE") @db.VarChar(30)
   createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz
@@ -294,11 +295,11 @@ model Campus {
 }
 
 model Course {
-  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id            String    @id @default(uuid()) @db.Uuid
   institutionId String?   @map("institution_id") @db.Uuid
   code          String    @unique @db.VarChar(50)
   title         String    @db.VarChar(150)
-  description   String?   @db.Text
+  description   String?
   credits       Int?      @default(0)
   semester      Int?
   status        String    @default("ACTIVE") @db.VarChar(30)
@@ -319,10 +320,10 @@ model Course {
 // ==========================================
 
 model Section {
-  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id                String    @id @default(uuid()) @db.Uuid
   courseId          String    @map("course_id") @db.Uuid
   name              String    @db.VarChar(150)
-  description       String?   @db.Text
+  description       String?
   classroom         String?   @db.VarChar(100)
   schedule          String?   @db.VarChar(150)
   capacity          Int?
@@ -338,11 +339,11 @@ model Section {
 }
 
 model Material {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id        String   @id @default(uuid()) @db.Uuid
   sectionId String   @map("section_id") @db.Uuid
   title     String   @db.VarChar(250)
   type      String   @db.VarChar(50)
-  url       String?  @db.Text
+  url       String?
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -357,7 +358,7 @@ model Material {
 // ==========================================
 
 model StudySession {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id        String   @id @default(uuid()) @db.Uuid
   courseId  String   @map("course_id") @db.Uuid
   status    String   @default("PUBLISHED") @db.VarChar(30)
   startsAt  DateTime @map("starts_at") @db.Timestamptz
@@ -374,7 +375,7 @@ model StudySession {
 }
 
 model StudySessionBooking {
-  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id             String   @id @default(uuid()) @db.Uuid
   studySessionId String   @map("study_session_id") @db.Uuid
   userId         String   @map("user_id") @db.Uuid
   status         String   @default("CONFIRMED") @db.VarChar(30)

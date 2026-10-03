@@ -7,736 +7,737 @@ import { env } from '@/lib/config/env';
 import { normalizePagination } from '@/helper/pagination';
 import type { SessionPermission, SessionRole, SessionUser } from '@/lib/session';
 import type {
-	CreateUserBody,
-	UpdateAdminUserProfileBody,
-	UpdateOwnProfileBody,
-	UpdateUserBody,
-	UserQueryParams,
+    CreateUserBody,
+    UpdateAdminUserProfileBody,
+    UpdateOwnProfileBody,
+    UpdateUserBody,
+    UserQueryParams,
 } from '@/validations/users';
 
 import { assertKeepsAtLeastOneAdmin } from './role-guard';
 
 type OAuthSyncUser = {
-	user: SessionUser;
+    user: SessionUser;
 };
 
 const isPrismaUniqueConstraintError = (
-	error: any,
+    error: any,
 ): error is PrismaClient.PrismaClientKnownRequestError =>
-	error instanceof PrismaClient.PrismaClientKnownRequestError && error.code === 'P2002';
+    error instanceof PrismaClient.PrismaClientKnownRequestError && error.code === 'P2002';
 
 const splitDisplayName = (displayName: string): { firstName: string; lastName: string } => {
-	const parts = displayName.trim().split(/\s+/u).filter((part): part is string => Boolean(part));
+    const parts = displayName.trim().split(/\s+/u).filter((part): part is string => Boolean(part));
 
-	if (parts.length === 0) {
-		return { firstName: 'Usuario', lastName: 'OAuth' };
-	}
+    if (parts.length === 0) {
+        return { firstName: 'Usuario', lastName: 'Local' };
+    }
 
-	if (parts.length === 1) {
-		return { firstName: parts[0] ?? 'Usuario', lastName: '' };
-	}
+    if (parts.length === 1) {
+        return { firstName: parts[0] ?? 'Usuario', lastName: '' };
+    }
 
-	return {
-		firstName: parts[0] ?? 'Usuario',
-		lastName: parts.slice(1).join(' '),
-	};
+    return {
+        firstName: parts[0] ?? 'Usuario',
+        lastName: parts.slice(1).join(' '),
+    };
 };
 
 const buildDisplayName = (
-	firstName: string | null | undefined,
-	lastName: string | null | undefined,
-	email: string,
+    firstName: string | null | undefined,
+    lastName: string | null | undefined,
+    email: string,
 ): string => {
-	const name = [firstName, lastName]
-		.filter((value): value is string => Boolean(value && value.trim()))
-		.join(' ')
-		.trim();
+    const name = [firstName, lastName]
+        .filter((value): value is string => Boolean(value && value.trim()))
+        .join(' ')
+        .trim();
 
-	return name || email;
+    return name || email;
 }; 
 
 const mapRoles = (
-	roles: Array<{ role: { id: string; code: string; name: string } }>,
+    roles: Array<{ role: { id: string; code: string; name: string } }>,
 ): SessionRole[] =>
-	roles.map(({ role }) => ({
-		id: role.id,
-		code: role.code,
-		name: role.name,
-	}));
+    roles.map(({ role }) => ({
+        id: role.id,
+        code: role.code,
+        name: role.name,
+    }));
 
 const mapPermissions = (
-	roles: Array<{
-		role: {
-			permissions: Array<{
-				permission: { id: string; code: string };
-			}>;
-		};
-	}>,
+    roles: Array<{
+        role: {
+            permissions: Array<{
+                permission: { id: string; code: string };
+            }>;
+        };
+    }>,
 ): SessionPermission[] => {
-	const seen = new Map<string, SessionPermission>();
+    const seen = new Map<string, SessionPermission>();
 
-	for (const role of roles) {
-		for (const granted of role.role.permissions) {
-			seen.set(granted.permission.id, granted.permission);
-		}
-	}
+    for (const role of roles) {
+        for (const granted of role.role.permissions) {
+            seen.set(granted.permission.id, granted.permission);
+        }
+    }
 
-	return [...seen.values()];
+    return [...seen.values()];
 };
 
 const loadUserWithAccess = async (userId: string) =>
-	prisma.user.findUnique({
-		where: { id: userId },
-		include: {
-			profile: true,
-			userRoles: {
-				include: {
-					role: {
-						include: {
-							permissions: {
-								where: { granted: true },
-								include: {
-									permission: true,
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	});
+    prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+            profile: true,
+            userRoles: {
+                include: {
+                    role: {
+                        include: {
+                            permissions: {
+                                where: { granted: true },
+                                include: {
+                                    permission: true,
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    });
 
 export const getSessionUser = async (userId: string): Promise<SessionUser | null> => {
-	const user = await loadUserWithAccess(userId);
+    const user = await loadUserWithAccess(userId);
 
-	if (!user) {
-		return null;
-	}
+    if (!user) {
+        return null;
+    }
 
-	return {
-		id: user.id,
-		email: user.email,
-		name: buildDisplayName(user.profile?.firstName, user.profile?.lastName, user.email),
-		roles: mapRoles(user.userRoles),
-		permissions: mapPermissions(user.userRoles),
-	};
+    return {
+        id: user.id,
+        email: user.email,
+        name: buildDisplayName(user.profile?.firstName, user.profile?.lastName, user.email),
+        roles: mapRoles(user.userRoles),
+        permissions: mapPermissions(user.userRoles),
+    };
 };
 
 const toOAuthSyncUser = (
-	user: NonNullable<Awaited<ReturnType<typeof loadUserWithAccess>>>,
+    user: NonNullable<Awaited<ReturnType<typeof loadUserWithAccess>>>,
 ): OAuthSyncUser => ({
-	user: {
-		id: user.id,
-		email: user.email,
-		name: buildDisplayName(user.profile?.firstName, user.profile?.lastName, user.email),
-		roles: mapRoles(user.userRoles),
-		permissions: mapPermissions(user.userRoles),
-	},
+    user: {
+        id: user.id,
+        email: user.email,
+        name: buildDisplayName(user.profile?.firstName, user.profile?.lastName, user.email),
+        roles: mapRoles(user.userRoles),
+        permissions: mapPermissions(user.userRoles),
+    },
 });
 
 export const findOrSyncByOAuth = async (
-	oauthSubject: string,
-	email: string,
-	name: string,
+    oauthSubject: string,
+    email: string,
+    name: string,
 ): Promise<OAuthSyncUser> => {
-	const existingAccount = await prisma.authAccount.findUnique({
-		where: {
-			provider_providerAccountId: {
-				provider: env.OAUTH_PROVIDER_NAME,
-				providerAccountId: oauthSubject,
-			},
-		},
-	});
+    const existingAccount = await prisma.authAccount.findUnique({
+        where: {
+            provider_providerAccountId: {
+                provider: env.OAUTH_PROVIDER_NAME,
+                providerAccountId: oauthSubject,
+            },
+        },
+    });
 
-	if (existingAccount) {
-		const updatedUser = await prisma.user.update({
-			where: { id: existingAccount.userId },
-			data: {
-				email,
-				profile: {
-					upsert: {
-						create: splitDisplayName(name),
-						update: splitDisplayName(name),
-					},
-				},
-			},
-		});
+    if (existingAccount) {
+        const updatedUser = await prisma.user.update({
+            where: { id: existingAccount.userId },
+            data: {
+                email,
+                profile: {
+                    upsert: {
+                        create: splitDisplayName(name),
+                        update: splitDisplayName(name),
+                    },
+                },
+            },
+        });
 
-		const user = await loadUserWithAccess(updatedUser.id);
+        const user = await loadUserWithAccess(updatedUser.id);
 
-		if (!user) {
-			throw new Error('User synchronization failed');
-		}
+        if (!user) {
+            throw new Error('User synchronization failed');
+        }
 
-		return toOAuthSyncUser(user);
-	}
+        return toOAuthSyncUser(user);
+    }
 
-	const existingUserByEmail = await prisma.user.findUnique({ where: { email } });
-	if (existingUserByEmail) {
-		const relinkedUser = await prisma.$transaction(async transaction => {
-			await transaction.authAccount.deleteMany({
-				where: { userId: existingUserByEmail.id, provider: env.OAUTH_PROVIDER_NAME },
-			});
+    const existingUserByEmail = await prisma.user.findUnique({ where: { email } });
+    if (existingUserByEmail) {
+        const relinkedUser = await prisma.$transaction(async (transaction: Prisma.TransactionClient) => {
+            await transaction.authAccount.deleteMany({
+                where: { userId: existingUserByEmail.id, provider: env.OAUTH_PROVIDER_NAME },
+            });
 
-			await transaction.authAccount.create({
-				data: {
-					userId: existingUserByEmail.id,
-					provider: env.OAUTH_PROVIDER_NAME,
-					providerAccountId: oauthSubject,
-				},
-			});
+            await transaction.authAccount.create({
+                data: {
+                    userId: existingUserByEmail.id,
+                    provider: env.OAUTH_PROVIDER_NAME,
+                    providerAccountId: oauthSubject,
+                },
+            });
 
-			return transaction.user.update({
-				where: { id: existingUserByEmail.id },
-				data: {
-					profile: {
-						upsert: {
-							create: splitDisplayName(name),
-							update: splitDisplayName(name),
-						},
-					},
-				},
-			});
-		});
+            return transaction.user.update({
+                where: { id: existingUserByEmail.id },
+                data: {
+                    profile: {
+                        upsert: {
+                            create: splitDisplayName(name),
+                            update: splitDisplayName(name),
+                        },
+                    },
+                },
+            });
+        });
 
-		const user = await loadUserWithAccess(relinkedUser.id);
+        const user = await loadUserWithAccess(relinkedUser.id);
 
-		if (!user) {
-			throw new Error('User synchronization failed');
-		}
+        if (!user) {
+            throw new Error('User synchronization failed');
+        }
 
-		return toOAuthSyncUser(user);
-	}
+        return toOAuthSyncUser(user);
+    }
 
-	const createdUser = await prisma.$transaction(async transaction => {
-		const user = await transaction.user.create({
-			data: {
-				email,
-				username: email.split('@')[0] || email,
-				status: 'ACTIVE',
-				profile: {
-					create: splitDisplayName(name),
-				},
-				authAccounts: {
-					create: {
-						provider: env.OAUTH_PROVIDER_NAME,
-						providerAccountId: oauthSubject,
-					},
-				},
-			},
-		});
+    const createdUser = await prisma.$transaction(async (transaction: Prisma.TransactionClient) => {
+        const user = await transaction.user.create({
+            data: {
+                email,
+                username: email.split('@')[0] || email,
+                status: 'ACTIVE',
+                profile: {
+                    create: splitDisplayName(name),
+                },
+                authAccounts: {
+                    create: {
+                        provider: env.OAUTH_PROVIDER_NAME,
+                        providerAccountId: oauthSubject,
+                    },
+                },
+            },
+        });
 
-		return user;
-	});
+        return user;
+    });
 
-	const user = await loadUserWithAccess(createdUser.id);
+    const user = await loadUserWithAccess(createdUser.id);
 
-	if (!user) {
-		throw new Error('User synchronization failed');
-	}
+    if (!user) {
+        throw new Error('User synchronization failed');
+    }
 
-	return toOAuthSyncUser(user);
+    return toOAuthSyncUser(user);
 };
 
 const selectUserFields = {
-	id: true,
-	email: true,
-	status: true,
-	createdAt: true,
-	updatedAt: true,
-	profile: true,
-	userRoles: {
-		include: {
-			role: true,
-		},
-	},
+    id: true,
+    email: true,
+    status: true,
+    createdAt: true,
+    updatedAt: true,
+    profile: true,
+    userRoles: {
+        include: {
+            role: true,
+        },
+    },
 };
 
 const selectAdminProfileFields = {
-	id: true,
-	email: true,
-	status: true,
-	profile: {
-		select: {
-			firstName: true,
-			lastName: true,
-			updatedAt: true,
-		},
-	},
+    id: true,
+    email: true,
+    status: true,
+    profile: {
+        select: {
+            firstName: true,
+            lastName: true,
+            updatedAt: true,
+        },
+    },
 } satisfies Prisma.UserSelect;
 
 export const getAdminProfile = async (userId: string) =>
-	prisma.user.findUnique({
-		where: { id: userId },
-		select: selectAdminProfileFields,
-	});
+    prisma.user.findUnique({
+        where: { id: userId },
+        select: selectAdminProfileFields,
+    });
 
 const selectOwnProfileFields = {
-	userId: true,
-	phone: true,
-	facebookUrl: true,
-	instagramUrl: true,
-	linkedinUrl: true,
-	xUrl: true,
-	githubUrl: true,
-	tiktokUrl: true,
-	websiteUrl: true,
-	avatarMimeType: true,
-	avatarUpdatedAt: true,
-	updatedAt: true,
+    userId: true,
+    phone: true,
+    facebookUrl: true,
+    instagramUrl: true,
+    linkedinUrl: true,
+    xUrl: true,
+    githubUrl: true,
+    tiktokUrl: true,
+    websiteUrl: true,
+    avatarMimeType: true,
+    avatarUpdatedAt: true,
+    updatedAt: true,
 } satisfies Prisma.UserProfileSelect;
 
 export const getOwnProfile = async (userId: string) =>
-	prisma.userProfile.findUnique({
-		where: { userId },
-		select: selectOwnProfileFields,
-	});
+    prisma.userProfile.findUnique({
+        where: { userId },
+        select: selectOwnProfileFields,
+    });
 
 export const updateOwnProfile = async (userId: string, data: UpdateOwnProfileBody) =>
-	prisma.$transaction(async transaction => {
-		const update = await transaction.userProfile.updateMany({
-			where: {
-				userId,
-				updatedAt: new Date(data.expectedProfileUpdatedAt),
-			},
-			data: {
-				...(data.phone !== undefined ? { phone: data.phone || null } : {}),
-				...(data.facebookUrl !== undefined ? { facebookUrl: data.facebookUrl || null } : {}),
-				...(data.instagramUrl !== undefined ? { instagramUrl: data.instagramUrl || null } : {}),
-				...(data.linkedinUrl !== undefined ? { linkedinUrl: data.linkedinUrl || null } : {}),
-				...(data.xUrl !== undefined ? { xUrl: data.xUrl || null } : {}),
-				...(data.githubUrl !== undefined ? { githubUrl: data.githubUrl || null } : {}),
-				...(data.tiktokUrl !== undefined ? { tiktokUrl: data.tiktokUrl || null } : {}),
-				...(data.websiteUrl !== undefined ? { websiteUrl: data.websiteUrl || null } : {}),
-			},
-		});
+    prisma.$transaction(async (transaction: Prisma.TransactionClient) => {
+        const update = await transaction.userProfile.updateMany({
+            where: {
+                userId,
+                updatedAt: new Date(data.expectedProfileUpdatedAt),
+            },
+            data: {
+                ...(data.phone !== undefined ? { phone: data.phone || null } : {}),
+                ...(data.facebookUrl !== undefined ? { facebookUrl: data.facebookUrl || null } : {}),
+                ...(data.instagramUrl !== undefined ? { instagramUrl: data.instagramUrl || null } : {}),
+                ...(data.linkedinUrl !== undefined ? { linkedinUrl: data.linkedinUrl || null } : {}),
+                ...(data.xUrl !== undefined ? { xUrl: data.xUrl || null } : {}),
+                ...(data.githubUrl !== undefined ? { githubUrl: data.githubUrl || null } : {}),
+                ...(data.tiktokUrl !== undefined ? { tiktokUrl: data.tiktokUrl || null } : {}),
+                ...(data.websiteUrl !== undefined ? { websiteUrl: data.websiteUrl || null } : {}),
+            },
+        });
 
-		if (update.count === 0) return null;
+        if (update.count === 0) return null;
 
-		return transaction.userProfile.findUnique({
-			where: { userId },
-			select: selectOwnProfileFields,
-		});
-	});
+        return transaction.userProfile.findUnique({
+            where: { userId },
+            select: selectOwnProfileFields,
+        });
+    });
 
 export const getOwnAvatar = async (userId: string) =>
-	prisma.userProfile.findUnique({
-		where: { userId },
-		select: { avatarData: true, avatarMimeType: true, avatarUpdatedAt: true },
-	});
+    prisma.userProfile.findUnique({
+        where: { userId },
+        select: { avatarData: true, avatarMimeType: true, avatarUpdatedAt: true },
+    });
 
 export const updateOwnAvatar = async (userId: string, avatar: { data: Buffer; mimeType: string }) =>
-	prisma.userProfile.update({
-		where: { userId },
-		data: {
-			avatarData: Buffer.from(avatar.data),
-			avatarMimeType: avatar.mimeType,
-			avatarUpdatedAt: new Date(),
-		},
-		select: { avatarUpdatedAt: true },
-	});
+    prisma.userProfile.update({
+        where: { userId },
+        data: {
+            avatarData: Buffer.from(avatar.data),
+            avatarMimeType: avatar.mimeType,
+            avatarUpdatedAt: new Date(),
+        },
+        select: { avatarUpdatedAt: true },
+    });
 
 export const removeOwnAvatar = async (userId: string) =>
-	prisma.userProfile.updateMany({
-		where: { userId },
-		data: {
-			avatarData: null,
-			avatarMimeType: null,
-			avatarUpdatedAt: new Date(),
-		},
-	});
+    prisma.userProfile.updateMany({
+        where: { userId },
+        data: {
+            avatarData: null,
+            avatarMimeType: null,
+            avatarUpdatedAt: new Date(),
+        },
+    });
 
 export type AdminProfileUpdateResult =
-	| { outcome: 'UPDATED'; user: NonNullable<Awaited<ReturnType<typeof getAdminProfile>>> }
-	| { outcome: 'NOT_FOUND' | 'INACTIVE' | 'SYSTEM_ROLE' | 'CONFLICT' };
+    | { outcome: 'UPDATED'; user: NonNullable<Awaited<ReturnType<typeof getAdminProfile>>> }
+    | { outcome: 'NOT_FOUND' | 'INACTIVE' | 'SYSTEM_ROLE' | 'CONFLICT' };
 
 export const updateAdminProfile = async (
-	userId: string,
-	data: UpdateAdminUserProfileBody,
-	actorIsAdministrator: boolean,
+    userId: string,
+    data: UpdateAdminUserProfileBody,
+    actorIsAdministrator: boolean,
 ): Promise<AdminProfileUpdateResult> =>
-	prisma.$transaction(async transaction => {
-		const target = await transaction.user.findUnique({
-			where: { id: userId },
-			select: {
-				status: true,
-				profile: { select: { updatedAt: true } },
-				userRoles: { select: { role: { select: { isSystem: true } } } },
-			},
-		});
+    prisma.$transaction(async (transaction: Prisma.TransactionClient) => {
+        const target = await transaction.user.findUnique({
+            where: { id: userId },
+            select: {
+                status: true,
+                profile: { select: { updatedAt: true } },
+                userRoles: { select: { role: { select: { isSystem: true } } } },
+            },
+        });
 
-		if (!target?.profile) {
-			return { outcome: 'NOT_FOUND' };
-		}
+        if (!target?.profile) {
+            return { outcome: 'NOT_FOUND' };
+        }
 
-		if (target.status !== 'ACTIVE') {
-			return { outcome: 'INACTIVE' };
-		}
+        if (target.status !== 'ACTIVE') {
+            return { outcome: 'INACTIVE' };
+        }
 
-		if (!actorIsAdministrator && target.userRoles.some(({ role }) => role.isSystem)) {
-			return { outcome: 'SYSTEM_ROLE' };
-		}
+        if (!actorIsAdministrator && target.userRoles.some(({ role }: { role: { isSystem: boolean } }) => role.isSystem)) {
+            return { outcome: 'SYSTEM_ROLE' };
+        }
 
-		const update = await transaction.userProfile.updateMany({
-			where: {
-				userId,
-				updatedAt: new Date(data.expectedProfileUpdatedAt),
-			},
-			data: {
-				...(data.firstName !== undefined ? { firstName: data.firstName } : {}),
-				...(data.lastName !== undefined ? { lastName: data.lastName } : {}),
-			},
-		});
+        const update = await transaction.userProfile.updateMany({
+            where: {
+                userId,
+                updatedAt: new Date(data.expectedProfileUpdatedAt),
+            },
+            data: {
+                ...(data.firstName !== undefined ? { firstName: data.firstName } : {}),
+                ...(data.lastName !== undefined ? { lastName: data.lastName } : {}),
+            },
+        });
 
-		if (update.count === 0) {
-			return { outcome: 'CONFLICT' };
-		}
+        if (update.count === 0) {
+            return { outcome: 'CONFLICT' };
+        }
 
-		const user = await transaction.user.findUnique({
-			where: { id: userId },
-			select: selectAdminProfileFields,
-		});
+        const user = await transaction.user.findUnique({
+            where: { id: userId },
+            select: selectAdminProfileFields,
+        });
 
-		if (!user) {
-			return { outcome: 'NOT_FOUND' };
-		}
+        if (!user) {
+            return { outcome: 'NOT_FOUND' };
+        }
 
-		return { outcome: 'UPDATED', user };
-	});
+        return { outcome: 'UPDATED', user };
+    });
 
 export const createFromRegistration = async (
-	keycloakId: string,
-	data: { email: string; firstName: string; lastName: string },
-	roleId?: string,
+    localAuthId: string,
+    data: { email: string; firstName: string; lastName: string },
+    roleId?: string,
 ) => {
-	try {
-		return await prisma.$transaction(async transaction =>
-			transaction.user.create({
-				data: {
-					email: data.email,
-					username: data.email.split('@')[0] || data.email,
-					status: 'ACTIVE',
-					profile: {
-						create: { firstName: data.firstName, lastName: data.lastName },
-					},
-					authAccounts: {
-						create: {
-							provider: env.OAUTH_PROVIDER_NAME,
-							providerAccountId: keycloakId,
-						},
-					},
-					...(roleId ? { userRoles: { create: { roleId } } } : {}),
-				},
-				select: selectUserFields,
-			}),
-		);
-	} catch (error) {
-		if (isPrismaUniqueConstraintError(error)) {
-			throw new ConflictError('Ya existe un usuario con ese correo electrónico.');
-		}
+    try {
+        return await prisma.$transaction(async (transaction: Prisma.TransactionClient) =>
+            transaction.user.create({
+                data: {
+                    email: data.email,
+                    username: data.email.split('@')[0] || data.email,
+                    status: 'ACTIVE',
+                    profile: {
+                        create: { firstName: data.firstName, lastName: data.lastName },
+                    },
+                    authAccounts: {
+                        create: {
+                            provider: env.OAUTH_PROVIDER_NAME,
+                            providerAccountId: localAuthId,
+                        },
+                    },
+                    ...(roleId ? { userRoles: { create: { roleId } } } : {}),
+                },
+                select: selectUserFields,
+            }),
+        );
+    } catch (error) {
+        if (isPrismaUniqueConstraintError(error)) {
+            throw new ConflictError('Ya existe un usuario con ese correo electrónico.');
+        }
 
-		throw error;
-	}
+        throw error;
+    }
 };
 
 export const getAll = async (filters: UserQueryParams) => {
-	const { skip, take, meta } = normalizePagination(filters);
+    const { skip, take, meta } = normalizePagination(filters);
 
-	const where: Prisma.UserWhereInput = {
-		status: filters.active ? 'ACTIVE' : undefined,
-	};
+    const where: Prisma.UserWhereInput = {
+        status: filters.active ? 'ACTIVE' : undefined,
+    };
 
-	if (filters.search) {
-		where.OR = [
-			{ email: { contains: filters.search, mode: 'insensitive' } },
-			{ profile: { firstName: { contains: filters.search, mode: 'insensitive' } } },
-			{ profile: { lastName: { contains: filters.search, mode: 'insensitive' } } },
-		];
-	}
+    if (filters.search) {
+        where.OR = [
+            { email: { contains: filters.search, mode: 'insensitive' } },
+            { profile: { firstName: { contains: filters.search, mode: 'insensitive' } } },
+            { profile: { lastName: { contains: filters.search, mode: 'insensitive' } } },
+        ];
+    }
 
-	const [users, total] = await Promise.all([
-		prisma.user.findMany({
-			where,
-			select: selectUserFields,
-			skip,
-			take,
-			orderBy: filters.orderBy
-				? { [filters.orderBy]: filters.order ?? 'asc' }
-				: { createdAt: 'desc' },
-		}),
-		prisma.user.count({ where }),
-	]);
+    const [users, total] = await Promise.all([
+        prisma.user.findMany({
+            where,
+            select: selectUserFields,
+            skip,
+            take,
+            orderBy: filters.orderBy
+                ? { [filters.orderBy]: filters.order ?? 'asc' }
+                : { createdAt: 'desc' },
+        }),
+        prisma.user.count({ where }),
+    ]);
 
-	return { users, meta: meta(total) };
+    return { users, meta: meta(total) };
 };
 
 export const create = async (data: CreateUserBody) => {
-	try {
-		const user = await prisma.user.create({
-			data: {
-				email: data.email,
-				username: data.email.split('@')[0] || data.email,
-				status: 'ACTIVE',
-				profile: {
-					create: {
-						firstName: data.firstName,
-						lastName: data.lastName,
-					},
-				},
-			},
-			select: selectUserFields,
-		});
+    try {
+        const user = await prisma.user.create({
+            data: {
+                email: data.email,
+                username: data.email.split('@')[0] || data.email,
+                status: 'ACTIVE',
+                profile: {
+                    create: {
+                        firstName: data.firstName,
+                        lastName: data.lastName,
+                    },
+                },
+            },
+            select: selectUserFields,
+        });
 
-		return user;
-	} catch (error) {
-		if (isPrismaUniqueConstraintError(error)) {
-			throw new ConflictError('Ya existe un usuario con ese correo electrónico.');
-		}
+        return user;
+    } catch (error) {
+        if (isPrismaUniqueConstraintError(error)) {
+            throw new ConflictError('Ya existe un usuario con ese correo electrónico.');
+        }
 
-		throw error;
-	}
+        throw error;
+    }
 };
 
 export const createWithRoles = async (
-	data: CreateUserBody,
-	roles: Array<{ id: string; organizationId: string | null }> = [],
+    data: CreateUserBody,
+    roles: Array<{ id: string; organizationId: string | null }> = [],
 ) => {
-	try {
-		return await prisma.$transaction(async transaction =>
-			transaction.user.create({
-				data: {
-					email: data.email,
-					username: data.email.split('@')[0] || data.email,
-					status: 'ACTIVE',
-					profile: {
-						create: {
-							firstName: data.firstName,
-							lastName: data.lastName,
-						},
-					},
-					...(roles.length > 0
-						? {
-								userRoles: {
-									create: roles.map(role => ({
-										roleId: role.id,
-										organizationId: role.organizationId,
-									})),
-								},
-							}
-						: {}),
-				},
-				select: selectUserFields,
-			}),
-		);
-	} catch (error) {
-		if (isPrismaUniqueConstraintError(error)) {
-			throw new ConflictError('Ya existe un usuario con ese correo electrónico.');
-		}
+    try {
+        return await prisma.$transaction(async (transaction: Prisma.TransactionClient) =>
+            transaction.user.create({
+                data: {
+                    email: data.email,
+                    username: data.email.split('@')[0] || data.email,
+                    status: 'ACTIVE',
+                    profile: {
+                        create: {
+                            firstName: data.firstName,
+                            lastName: data.lastName,
+                        },
+                    },
+                    ...(roles.length > 0
+                        ? {
+                            userRoles: {
+                                create: roles.map((role: { id: string; organizationId: string | null }) => ({
+                                    roleId: role.id,
+                                    organizationId: role.organizationId,
+                                })),
+                            },
+                          }
+                        : {}),
+                },
+                select: selectUserFields,
+            }),
+        );
+    } catch (error) {
+        if (isPrismaUniqueConstraintError(error)) {
+            throw new ConflictError('Ya existe un usuario con ese correo electrónico.');
+        }
 
-		throw error;
-	}
+        throw error;
+    }
 };
 
 export const getRolesByUserId = async (userId: string, page = 1, pageSize = 20) => {
-	const where: Prisma.UserRoleWhereInput = { userId };
-	const [userRoles, total] = await Promise.all([
-		prisma.userRole.findMany({
-			where,
-			include: {
-				role: true,
-			},
-			orderBy: { role: { name: 'asc' } },
-			skip: (page - 1) * pageSize,
-			take: pageSize,
-		}),
-		prisma.userRole.count({ where }),
-	]);
+    const where: Prisma.UserRoleWhereInput = { userId };
+    const [userRoles, total] = await Promise.all([
+        prisma.userRole.findMany({
+            where,
+            include: {
+                role: true,
+            },
+            orderBy: { role: { name: 'asc' } },
+            skip: (page - 1) * pageSize,
+            take: pageSize,
+        }),
+        prisma.userRole.count({ where }),
+    ]);
 
-	return {
-		roles: userRoles.map(userRole => userRole.role),
-		meta: {
-			page,
-			pageSize,
-			total,
-			totalPages: Math.ceil(total / pageSize),
-		},
-	};
+    return {
+        roles: userRoles.map((userRole: Prisma.UserRoleGetPayload<{ include: { role: true } }>) => userRole.role),
+        meta: {
+            page,
+            pageSize,
+            total,
+            totalPages: Math.ceil(total / pageSize),
+        },
+    };
 };
 
 export const getAssignableRoles = async (roleIds: string[]) =>
-	prisma.role.findMany({
-		where: {
-			id: { in: roleIds },
-			deletedAt: null,
-		},
-		select: {
-			id: true,
-			organizationId: true,
-			isSystem: true,
-		},
-	});
+    prisma.role.findMany({
+        where: {
+            id: { in: roleIds },
+            deletedAt: null,
+        },
+        select: {
+            id: true,
+            organizationId: true,
+            isSystem: true,
+        },
+    });
 
 export const assignRolesToUser = async (
-	userId: string,
-	roles: Array<{ id: string; organizationId: string | null }>,
+    userId: string,
+    roles: Array<{ id: string; organizationId: string | null }>,
 ) =>
-	prisma.$transaction(async transaction => {
-		await assertKeepsAtLeastOneAdmin(transaction, userId, {
-			newRoleIds: roles.map(role => role.id),
-		});
+    prisma.$transaction(async (transaction: Prisma.TransactionClient) => {
+        await assertKeepsAtLeastOneAdmin(transaction, userId, {
+            newRoleIds: roles.map(role => role.id),
+        });
 
-		await transaction.userRole.deleteMany({
-			where: { userId },
-		});
+        await transaction.userRole.deleteMany({
+            where: { userId },
+        });
 
-		if (roles.length > 0) {
-			await transaction.userRole.createMany({
-				data: roles.map(role => ({
-					userId,
-					roleId: role.id,
-					organizationId: role.organizationId,
-				})),
-			});
-		}
-	});
+        if (roles.length > 0) {
+            await transaction.userRole.createMany({
+                data: roles.map(role => ({
+                    userId,
+                    roleId: role.id,
+                    organizationId: role.organizationId,
+                })),
+            });
+        }
+    });
 
 export const updateWithRoles = async (
-	userId: string,
-	data: UpdateUserBody,
-	roles?: Array<{ id: string; organizationId: string | null }>,
+    userId: string,
+    data: UpdateUserBody,
+    roles?: Array<{ id: string; organizationId: string | null }>,
 ) =>
-	prisma.$transaction(async transaction => {
-		if (roles) {
-			await assertKeepsAtLeastOneAdmin(transaction, userId, {
-				newRoleIds: roles.map(role => role.id),
-			});
-		}
+    prisma.$transaction(async (transaction: Prisma.TransactionClient) => {
+        if (roles) {
+            await assertKeepsAtLeastOneAdmin(transaction, userId, {
+                newRoleIds: roles.map(role => role.id),
+            });
+        }
 
-		await transaction.user.update({
-			where: { id: userId },
-			data: {
-				...(data.email && { email: data.email }),
-				...(data.firstName || data.lastName
-					? {
-							profile: {
-								update: {
-									...(data.firstName && { firstName: data.firstName }),
-									...(data.lastName && { lastName: data.lastName }),
-								},
-							},
-						}
-					: {}),
-			},
-		});
+        await transaction.user.update({
+            where: { id: userId },
+            data: {
+                ...(data.email && { email: data.email }),
+                ...(data.firstName || data.lastName
+                    ? {
+                        profile: {
+                            update: {
+                                ...(data.firstName && { firstName: data.firstName }),
+                                ...(data.lastName && { lastName: data.lastName }),
+                            },
+                        },
+                      }
+                    : {}),
+            },
+        });
 
-		if (roles) {
-			await transaction.userRole.deleteMany({ where: { userId } });
+        if (roles) {
+            await transaction.userRole.deleteMany({ where: { userId } });
 
-			if (roles.length > 0) {
-				await transaction.userRole.createMany({
-					data: roles.map(role => ({
-						userId,
-						roleId: role.id,
-						organizationId: role.organizationId,
-					})),
-				});
-			}
-		}
+            if (roles.length > 0) {
+                await transaction.userRole.createMany({
+                    data: roles.map(role => ({
+                        userId,
+                        roleId: role.id,
+                        organizationId: role.organizationId,
+                    })),
+                });
+            }
+        }
 
-		return transaction.user.findUniqueOrThrow({
-			where: { id: userId },
-			include: {
-				profile: true,
-				userRoles: { include: { role: true } },
-			},
-		});
-	});
+        return transaction.user.findUniqueOrThrow({
+            where: { id: userId },
+            include: {
+                profile: true,
+                userRoles: { include: { role: true } },
+            },
+        });
+    });
 
 export const addRolesToUser = async (
-	userId: string,
-	roles: Array<{ id: string; organizationId: string | null }>,
+    userId: string,
+    roles: Array<{ id: string; organizationId: string | null }>,
 ) =>
-	prisma.$transaction(async transaction => {
-		const existing = await transaction.userRole.findMany({
-			where: {
-				userId,
-				roleId: { in: roles.map(role => role.id) },
-			},
-			select: { roleId: true },
-		});
-		const existingRoleIds = new Set(existing.map(userRole => userRole.roleId));
-		const missingRoles = roles.filter(role => !existingRoleIds.has(role.id));
+    prisma.$transaction(async (transaction: Prisma.TransactionClient) => {
+        const existing = await transaction.userRole.findMany({
+            where: {
+                userId,
+                roleId: { in: roles.map(role => role.id) },
+            },
+            select: { roleId: true },
+        });
+        
+        const existingRoleIds = new Set(existing.map((item) => item.roleId));
+        const missingRoles = roles.filter(role => !existingRoleIds.has(role.id));
 
-		if (missingRoles.length > 0) {
-			await transaction.userRole.createMany({
-				data: missingRoles.map(role => ({
-					userId,
-					roleId: role.id,
-					organizationId: role.organizationId,
-				})),
-			});
-		}
-	});
+        if (missingRoles.length > 0) {
+            await transaction.userRole.createMany({
+                data: missingRoles.map(role => ({
+                    userId,
+                    roleId: role.id,
+                    organizationId: role.organizationId,
+                })),
+            });
+        }
+    });
 
 export const addRoleToUser = async (userId: string, roleId: string) => {
-	const role = await prisma.role.findFirst({
-		where: { id: roleId, deletedAt: null },
-		select: { id: true, organizationId: true },
-	});
+    const role = await prisma.role.findFirst({
+        where: { id: roleId, deletedAt: null },
+        select: { id: true, organizationId: true },
+    });
 
-	if (!role) {
-		return false;
-	}
+    if (!role) {
+        return false;
+    }
 
-	await addRolesToUser(userId, [role]);
-	return true;
+    await addRolesToUser(userId, [role]);
+    return true;
 };
 
 export const removeRoleFromUser = async (userId: string, roleId: string) =>
-	prisma.$transaction(async transaction => {
-		await assertKeepsAtLeastOneAdmin(transaction, userId, { removingRoleId: roleId });
+    prisma.$transaction(async (transaction: Prisma.TransactionClient) => {
+        await assertKeepsAtLeastOneAdmin(transaction, userId, { removingRoleId: roleId });
 
-		const result = await transaction.userRole.deleteMany({
-			where: { userId, roleId },
-		});
+        const result = await transaction.userRole.deleteMany({
+            where: { userId, roleId },
+        });
 
-		return result.count > 0;
-	});
+        return result.count > 0;
+    });
 
 export const record = (userId: string) => ({
-	getUnique: async () =>
-		prisma.user.findUnique({
-			where: { id: userId },
-			select: selectUserFields,
-		}),
-	update: async (data: UpdateUserBody) =>
-		prisma.user.update({
-			where: { id: userId },
-			data: {
-				...(data.email && { email: data.email }),
-				...(data.firstName || data.lastName
-					? {
-							profile: {
-								update: {
-									...(data.firstName && { firstName: data.firstName }),
-									...(data.lastName && { lastName: data.lastName }),
-								},
-							},
-						}
-					: {}),
-			},
-			select: selectUserFields,
-		}),
-	remove: async () =>
-		prisma.$transaction(async transaction => {
-			await assertKeepsAtLeastOneAdmin(transaction, userId);
+    getUnique: async () =>
+        prisma.user.findUnique({
+            where: { id: userId },
+            select: selectUserFields,
+        }),
+    update: async (data: UpdateUserBody) =>
+        prisma.user.update({
+            where: { id: userId },
+            data: {
+                ...(data.email && { email: data.email }),
+                ...(data.firstName || data.lastName
+                    ? {
+                        profile: {
+                            update: {
+                                ...(data.firstName && { firstName: data.firstName }),
+                                ...(data.lastName && { lastName: data.lastName }),
+                            },
+                        },
+                      }
+                    : {}),
+            },
+            select: selectUserFields,
+        }),
+    remove: async () =>
+        prisma.$transaction(async (transaction: Prisma.TransactionClient) => {
+            await assertKeepsAtLeastOneAdmin(transaction, userId);
 
-			return transaction.user.update({
-				where: { id: userId },
-				data: {
-					status: 'INACTIVE',
-				},
-				select: selectUserFields,
-			});
-		}),
+            return transaction.user.update({
+                where: { id: userId },
+                data: {
+                    status: 'INACTIVE',
+                },
+                select: selectUserFields,
+            });
+        }),
 });

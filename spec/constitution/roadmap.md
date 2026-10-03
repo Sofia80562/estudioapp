@@ -14,7 +14,7 @@ _Features completadas, en orden de implementación._
 6. **005 · Gestión de Roles y Permisos** — Control granular de acceso académico (ej: Alumno, Profesor).
 7. **006 · Asignación de Roles por Organización** — Asignación de alcances para profesores/alumnos.
 8. **007 · Manejo Robusto de Errores** — Transformación centralizada de errores Zod/App a respuestas HTTP consistentes.
-9. **008 · Entorno de Demostración** — Identity Provider configurado (Keycloak) y semilla para roles académicos.
+9. **008 · Entorno de Demostración** — PostgreSQL autónomo con DBeaver y semilla para roles académicos y usuarios de prueba.
 10. **009 · Sesiones Persistentes** — Migración de tokens a base de datos para corregir límites de tamaño en cookies y asegurar invalidación inmediata.
 
 ## Siguiente 🔜

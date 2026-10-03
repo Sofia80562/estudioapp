@@ -501,8 +501,6 @@ export namespace Prisma {
   export import raw = runtime.raw
   export import Sql = runtime.Sql
 
-
-
   /**
    * Decimal.js
    */
@@ -529,8 +527,8 @@ export namespace Prisma {
   export import Exact = $Public.Exact
 
   /**
-   * Prisma Client JS version: 5.22.0
-   * Query Engine version: 605197351a3c8bdd595af2d2a9bc3025bca48ea2
+   * Prisma Client JS version: 5.19.0
+   * Query Engine version: 5fe21811a6ba0b952a3bc71400666511fe3b902f
    */
   export type PrismaVersion = {
     client: string
@@ -2488,6 +2486,10 @@ export namespace Prisma {
       timeout?: number
       isolationLevel?: Prisma.TransactionIsolationLevel
     }
+    /**
+     * Instance of a Driver Adapter, e.g., like one provided by `@prisma/adapter-planetscale`
+     */
+    adapter?: runtime.DriverAdapter | null
   }
 
 
@@ -15850,7 +15852,7 @@ export namespace Prisma {
     entityType: string
     entityId: string
     action: $Enums.AuditAction
-    changes: JsonValue
+    changes: JsonValue | null
     createdAt: Date
     _count: AuditLogCountAggregateOutputType | null
     _min: AuditLogMinAggregateOutputType | null
@@ -15921,7 +15923,7 @@ export namespace Prisma {
       entityType: string
       entityId: string
       action: $Enums.AuditAction
-      changes: Prisma.JsonValue
+      changes: Prisma.JsonValue | null
       createdAt: Date
     }, ExtArgs["result"]["auditLog"]>
     composites: {}
@@ -23993,11 +23995,12 @@ export namespace Prisma {
   export type SortOrder = (typeof SortOrder)[keyof typeof SortOrder]
 
 
-  export const JsonNullValueInput: {
+  export const NullableJsonNullValueInput: {
+    DbNull: typeof DbNull,
     JsonNull: typeof JsonNull
   };
 
-  export type JsonNullValueInput = (typeof JsonNullValueInput)[keyof typeof JsonNullValueInput]
+  export type NullableJsonNullValueInput = (typeof NullableJsonNullValueInput)[keyof typeof NullableJsonNullValueInput]
 
 
   export const QueryMode: {
@@ -24995,7 +24998,7 @@ export namespace Prisma {
     entityType?: StringFilter<"AuditLog"> | string
     entityId?: UuidFilter<"AuditLog"> | string
     action?: EnumAuditActionFilter<"AuditLog"> | $Enums.AuditAction
-    changes?: JsonFilter<"AuditLog">
+    changes?: JsonNullableFilter<"AuditLog">
     createdAt?: DateTimeFilter<"AuditLog"> | Date | string
     actor?: XOR<UserRelationFilter, UserWhereInput>
   }
@@ -25006,7 +25009,7 @@ export namespace Prisma {
     entityType?: SortOrder
     entityId?: SortOrder
     action?: SortOrder
-    changes?: SortOrder
+    changes?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     actor?: UserOrderByWithRelationInput
   }
@@ -25020,7 +25023,7 @@ export namespace Prisma {
     entityType?: StringFilter<"AuditLog"> | string
     entityId?: UuidFilter<"AuditLog"> | string
     action?: EnumAuditActionFilter<"AuditLog"> | $Enums.AuditAction
-    changes?: JsonFilter<"AuditLog">
+    changes?: JsonNullableFilter<"AuditLog">
     createdAt?: DateTimeFilter<"AuditLog"> | Date | string
     actor?: XOR<UserRelationFilter, UserWhereInput>
   }, "id">
@@ -25031,7 +25034,7 @@ export namespace Prisma {
     entityType?: SortOrder
     entityId?: SortOrder
     action?: SortOrder
-    changes?: SortOrder
+    changes?: SortOrderInput | SortOrder
     createdAt?: SortOrder
     _count?: AuditLogCountOrderByAggregateInput
     _max?: AuditLogMaxOrderByAggregateInput
@@ -25047,7 +25050,7 @@ export namespace Prisma {
     entityType?: StringWithAggregatesFilter<"AuditLog"> | string
     entityId?: UuidWithAggregatesFilter<"AuditLog"> | string
     action?: EnumAuditActionWithAggregatesFilter<"AuditLog"> | $Enums.AuditAction
-    changes?: JsonWithAggregatesFilter<"AuditLog">
+    changes?: JsonNullableWithAggregatesFilter<"AuditLog">
     createdAt?: DateTimeWithAggregatesFilter<"AuditLog"> | Date | string
   }
 
@@ -26480,7 +26483,7 @@ export namespace Prisma {
     entityType: string
     entityId: string
     action: $Enums.AuditAction
-    changes: JsonNullValueInput | InputJsonValue
+    changes?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: Date | string
     actor: UserCreateNestedOneWithoutAuditLogsInput
   }
@@ -26491,7 +26494,7 @@ export namespace Prisma {
     entityType: string
     entityId: string
     action: $Enums.AuditAction
-    changes: JsonNullValueInput | InputJsonValue
+    changes?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: Date | string
   }
 
@@ -26500,7 +26503,7 @@ export namespace Prisma {
     entityType?: StringFieldUpdateOperationsInput | string
     entityId?: StringFieldUpdateOperationsInput | string
     action?: EnumAuditActionFieldUpdateOperationsInput | $Enums.AuditAction
-    changes?: JsonNullValueInput | InputJsonValue
+    changes?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
     actor?: UserUpdateOneRequiredWithoutAuditLogsNestedInput
   }
@@ -26511,7 +26514,7 @@ export namespace Prisma {
     entityType?: StringFieldUpdateOperationsInput | string
     entityId?: StringFieldUpdateOperationsInput | string
     action?: EnumAuditActionFieldUpdateOperationsInput | $Enums.AuditAction
-    changes?: JsonNullValueInput | InputJsonValue
+    changes?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
@@ -26521,7 +26524,7 @@ export namespace Prisma {
     entityType: string
     entityId: string
     action: $Enums.AuditAction
-    changes: JsonNullValueInput | InputJsonValue
+    changes?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: Date | string
   }
 
@@ -26530,7 +26533,7 @@ export namespace Prisma {
     entityType?: StringFieldUpdateOperationsInput | string
     entityId?: StringFieldUpdateOperationsInput | string
     action?: EnumAuditActionFieldUpdateOperationsInput | $Enums.AuditAction
-    changes?: JsonNullValueInput | InputJsonValue
+    changes?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
@@ -26540,7 +26543,7 @@ export namespace Prisma {
     entityType?: StringFieldUpdateOperationsInput | string
     entityId?: StringFieldUpdateOperationsInput | string
     action?: EnumAuditActionFieldUpdateOperationsInput | $Enums.AuditAction
-    changes?: JsonNullValueInput | InputJsonValue
+    changes?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
@@ -27886,14 +27889,14 @@ export namespace Prisma {
     notIn?: $Enums.AuditAction[] | ListEnumAuditActionFieldRefInput<$PrismaModel>
     not?: NestedEnumAuditActionFilter<$PrismaModel> | $Enums.AuditAction
   }
-  export type JsonFilter<$PrismaModel = never> = 
+  export type JsonNullableFilter<$PrismaModel = never> = 
     | PatchUndefined<
-        Either<Required<JsonFilterBase<$PrismaModel>>, Exclude<keyof Required<JsonFilterBase<$PrismaModel>>, 'path'>>,
-        Required<JsonFilterBase<$PrismaModel>>
+        Either<Required<JsonNullableFilterBase<$PrismaModel>>, Exclude<keyof Required<JsonNullableFilterBase<$PrismaModel>>, 'path'>>,
+        Required<JsonNullableFilterBase<$PrismaModel>>
       >
-    | OptionalFlat<Omit<Required<JsonFilterBase<$PrismaModel>>, 'path'>>
+    | OptionalFlat<Omit<Required<JsonNullableFilterBase<$PrismaModel>>, 'path'>>
 
-  export type JsonFilterBase<$PrismaModel = never> = {
+  export type JsonNullableFilterBase<$PrismaModel = never> = {
     equals?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | JsonNullValueFilter
     path?: string[]
     string_contains?: string | StringFieldRefInput<$PrismaModel>
@@ -27946,14 +27949,14 @@ export namespace Prisma {
     _min?: NestedEnumAuditActionFilter<$PrismaModel>
     _max?: NestedEnumAuditActionFilter<$PrismaModel>
   }
-  export type JsonWithAggregatesFilter<$PrismaModel = never> = 
+  export type JsonNullableWithAggregatesFilter<$PrismaModel = never> = 
     | PatchUndefined<
-        Either<Required<JsonWithAggregatesFilterBase<$PrismaModel>>, Exclude<keyof Required<JsonWithAggregatesFilterBase<$PrismaModel>>, 'path'>>,
-        Required<JsonWithAggregatesFilterBase<$PrismaModel>>
+        Either<Required<JsonNullableWithAggregatesFilterBase<$PrismaModel>>, Exclude<keyof Required<JsonNullableWithAggregatesFilterBase<$PrismaModel>>, 'path'>>,
+        Required<JsonNullableWithAggregatesFilterBase<$PrismaModel>>
       >
-    | OptionalFlat<Omit<Required<JsonWithAggregatesFilterBase<$PrismaModel>>, 'path'>>
+    | OptionalFlat<Omit<Required<JsonNullableWithAggregatesFilterBase<$PrismaModel>>, 'path'>>
 
-  export type JsonWithAggregatesFilterBase<$PrismaModel = never> = {
+  export type JsonNullableWithAggregatesFilterBase<$PrismaModel = never> = {
     equals?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | JsonNullValueFilter
     path?: string[]
     string_contains?: string | StringFieldRefInput<$PrismaModel>
@@ -27967,9 +27970,9 @@ export namespace Prisma {
     gt?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
     gte?: InputJsonValue | JsonFieldRefInput<$PrismaModel>
     not?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | JsonNullValueFilter
-    _count?: NestedIntFilter<$PrismaModel>
-    _min?: NestedJsonFilter<$PrismaModel>
-    _max?: NestedJsonFilter<$PrismaModel>
+    _count?: NestedIntNullableFilter<$PrismaModel>
+    _min?: NestedJsonNullableFilter<$PrismaModel>
+    _max?: NestedJsonNullableFilter<$PrismaModel>
   }
 
   export type CampusListRelationFilter = {
@@ -29800,14 +29803,14 @@ export namespace Prisma {
     _min?: NestedEnumAuditActionFilter<$PrismaModel>
     _max?: NestedEnumAuditActionFilter<$PrismaModel>
   }
-  export type NestedJsonFilter<$PrismaModel = never> = 
+  export type NestedJsonNullableFilter<$PrismaModel = never> = 
     | PatchUndefined<
-        Either<Required<NestedJsonFilterBase<$PrismaModel>>, Exclude<keyof Required<NestedJsonFilterBase<$PrismaModel>>, 'path'>>,
-        Required<NestedJsonFilterBase<$PrismaModel>>
+        Either<Required<NestedJsonNullableFilterBase<$PrismaModel>>, Exclude<keyof Required<NestedJsonNullableFilterBase<$PrismaModel>>, 'path'>>,
+        Required<NestedJsonNullableFilterBase<$PrismaModel>>
       >
-    | OptionalFlat<Omit<Required<NestedJsonFilterBase<$PrismaModel>>, 'path'>>
+    | OptionalFlat<Omit<Required<NestedJsonNullableFilterBase<$PrismaModel>>, 'path'>>
 
-  export type NestedJsonFilterBase<$PrismaModel = never> = {
+  export type NestedJsonNullableFilterBase<$PrismaModel = never> = {
     equals?: InputJsonValue | JsonFieldRefInput<$PrismaModel> | JsonNullValueFilter
     path?: string[]
     string_contains?: string | StringFieldRefInput<$PrismaModel>
@@ -30026,7 +30029,7 @@ export namespace Prisma {
     entityType: string
     entityId: string
     action: $Enums.AuditAction
-    changes: JsonNullValueInput | InputJsonValue
+    changes?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: Date | string
   }
 
@@ -30035,7 +30038,7 @@ export namespace Prisma {
     entityType: string
     entityId: string
     action: $Enums.AuditAction
-    changes: JsonNullValueInput | InputJsonValue
+    changes?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: Date | string
   }
 
@@ -30286,7 +30289,7 @@ export namespace Prisma {
     entityType?: StringFilter<"AuditLog"> | string
     entityId?: UuidFilter<"AuditLog"> | string
     action?: EnumAuditActionFilter<"AuditLog"> | $Enums.AuditAction
-    changes?: JsonFilter<"AuditLog">
+    changes?: JsonNullableFilter<"AuditLog">
     createdAt?: DateTimeFilter<"AuditLog"> | Date | string
   }
 
@@ -32523,7 +32526,7 @@ export namespace Prisma {
     entityType: string
     entityId: string
     action: $Enums.AuditAction
-    changes: JsonNullValueInput | InputJsonValue
+    changes?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: Date | string
   }
 
@@ -32659,7 +32662,7 @@ export namespace Prisma {
     entityType?: StringFieldUpdateOperationsInput | string
     entityId?: StringFieldUpdateOperationsInput | string
     action?: EnumAuditActionFieldUpdateOperationsInput | $Enums.AuditAction
-    changes?: JsonNullValueInput | InputJsonValue
+    changes?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
@@ -32668,7 +32671,7 @@ export namespace Prisma {
     entityType?: StringFieldUpdateOperationsInput | string
     entityId?: StringFieldUpdateOperationsInput | string
     action?: EnumAuditActionFieldUpdateOperationsInput | $Enums.AuditAction
-    changes?: JsonNullValueInput | InputJsonValue
+    changes?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
@@ -32677,7 +32680,7 @@ export namespace Prisma {
     entityType?: StringFieldUpdateOperationsInput | string
     entityId?: StringFieldUpdateOperationsInput | string
     action?: EnumAuditActionFieldUpdateOperationsInput | $Enums.AuditAction
-    changes?: JsonNullValueInput | InputJsonValue
+    changes?: NullableJsonNullValueInput | InputJsonValue
     createdAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
